@@ -1,5 +1,6 @@
 import os
 import time
+import json
 import weaviate
 import numpy as np
 from tqdm import tqdm
@@ -85,6 +86,11 @@ class WeaviateClient:
                 "name": "originalIndex",
                 "dataType": ["number"],
                 "description": "Original index of the chunk in the document"
+            },
+            {
+                "name": "mediaReferences",
+                "dataType": ["text[]"],
+                "description": "References to media items related to this content"
             }
         ]
         
@@ -131,6 +137,12 @@ class WeaviateClient:
                     "originalIndex": meta["original_index"]
                 }
                 
+                # Add media references if available
+                if "media_references" in meta and meta["media_references"]:
+                    # Convert media references to JSON strings to store in Weaviate
+                    media_refs_json = [json.dumps(ref) for ref in meta["media_references"]]
+                    properties["mediaReferences"] = media_refs_json
+                
                 # Add object with vector using v3 API
                 batch.add_data_object(
                     data_object=properties,
@@ -153,7 +165,7 @@ class WeaviateClient:
             # Perform vector search using v3 API
             result = (
                 self.client.query
-                .get(self.class_name, ["content", "contextualContent", "title", "url", "docId", "chunkId", "originalIndex"])
+                .get(self.class_name, ["content", "contextualContent", "title", "url", "docId", "chunkId", "originalIndex", "mediaReferences"])
                 .with_near_vector({"vector": query_embedding})
                 .with_limit(k)
                 .do()
@@ -166,16 +178,27 @@ class WeaviateClient:
                 # Format the results
                 formatted_results = []
                 for item in items:
+                    # Prepare metadata
+                    metadata = {
+                        "original_content": item["content"],
+                        "contextualized_content": item["contextualContent"],
+                        "title": item["title"],
+                        "url": item["url"],
+                        "doc_id": item["docId"],
+                        "chunk_id": item["chunkId"],
+                        "original_index": item["originalIndex"]
+                    }
+                    
+                    # Convert media references back from JSON strings
+                    if "mediaReferences" in item and item["mediaReferences"]:
+                        try:
+                            media_references = [json.loads(ref) for ref in item["mediaReferences"]]
+                            metadata["media_references"] = media_references
+                        except json.JSONDecodeError as e:
+                            print(f"Error decoding media references: {e}")
+                    
                     formatted_results.append({
-                        "metadata": {
-                            "original_content": item["content"],
-                            "contextualized_content": item["contextualContent"],
-                            "title": item["title"],
-                            "url": item["url"],
-                            "doc_id": item["docId"],
-                            "chunk_id": item["chunkId"],
-                            "original_index": item["originalIndex"]
-                        },
+                        "metadata": metadata,
                         "similarity": item.get("_additional", {}).get("certainty", 0)
                     })
                 return formatted_results

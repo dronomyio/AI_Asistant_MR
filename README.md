@@ -11,6 +11,10 @@ This project implements an advanced Retrieval Augmented Generation (RAG) system 
   - **OCR for Images**: Extracts text from diagrams, charts, and photos
   - **PDF Processing**: Extracts text, tables, and structure from PDF documents
   - **Document Handling**: Processes various document formats (DOCX, PPTX, etc.)
+- **Multimodal RAG**: Integrates multimedia content into the retrieval system
+  - **Media-Aware Embeddings**: Includes processed media content in contextual embeddings
+  - **Media References**: Includes relevant images and files in search results
+  - **Visual Context**: RAG responses that reference relevant visual information
 - **Contextual Embeddings**: Uses Claude to generate context for each document chunk
 - **Weaviate Vector Storage**: Stores embeddings in a powerful vector database
 - **Hybrid Search**: Combines vector similarity and BM25 for better retrieval
@@ -42,6 +46,7 @@ modalai_docs_project/
 │   │   └── __init__.py
 │   ├── embeddings/           # Contextual embeddings
 │   │   ├── contextual_embeddings.py
+│   │   ├── multimodal_embeddings.py  # Embeddings with media content
 │   │   └── __init__.py
 │   ├── retrieval/            # Advanced retrieval
 │   │   ├── advanced_retrieval.py
@@ -101,14 +106,23 @@ The entire system is containerized for easy deployment:
    # Process downloaded media files with Unstructured.io
    docker-compose exec app python run.py process-media
    
-   # Generate contextual embeddings
+   # Generate contextual embeddings (text-only)
    docker-compose exec app python run.py embed
+   
+   # Generate multimodal embeddings (with media content)
+   docker-compose exec app python run.py embed --multimodal
+   
+   # Search with text-only retrieval
+   docker-compose exec app python run.py retrieve --query "drone configuration"
+   
+   # Search with multimodal retrieval (includes media references)
+   docker-compose exec app python run.py retrieve --multimodal --query "drone components"
    
    # Start the chat server
    docker-compose exec app python run.py chat
    
-   # Run complete pipeline with multimedia support
-   docker-compose exec app python run.py pipeline --download-media --process-media
+   # Run complete pipeline with full multimedia support
+   docker-compose exec app python run.py pipeline --download-media --process-media --multimodal-embeddings
    ```
 
 5. Access the chat interface at http://localhost:5005
@@ -188,15 +202,23 @@ For local development without Docker:
     - OCR for images to extract text
     - PDF processing for text, tables, and structure
     - Various document format handling
+- **Embedding Layer**:
+  - Text-only contextual embeddings
+  - Multimodal embeddings incorporating processed media content
+  - Media-aware context generation using Claude
 - **Storage Layer**: 
-  - Weaviate: Stores vector embeddings for semantic search
+  - Weaviate: Stores vector embeddings with media references
   - Elasticsearch: Provides BM25 text search capabilities
   - File System: Organizes media files by source page
 - **Retrieval Layer**: 
   - Hybrid search combining results from Weaviate and Elasticsearch
   - Reranking for improved result ordering
-  - Media file reference resolution
-- **Generation Layer**: Creates RAG responses using Claude
+  - Media-aware search results with file references
+  - Multimodal retrieval options
+- **Generation Layer**: 
+  - Creates RAG responses using Claude
+  - Includes references to relevant media in answers
+  - Lists related media files with descriptions
 - **Interface Layer**: Web UI using Flask and Socket.IO for real-time communication
 
 ## Chat Interface
@@ -226,7 +248,8 @@ The chat interface provides:
 
 ## Future Enhancements
 
-- **Multimodal RAG**: Incorporate processed media content in the retrieval process
-- **Media References in Responses**: Include relevant images and document links in answers
+- **Image Visualization**: Display referenced images directly in the chat interface
+- **Document Viewers**: Embed PDF and document viewers in the interface
 - **Image Captioning**: Generate descriptive captions for images using LLMs
-- **Enhanced PDF Understanding**: Improved table and structure extraction from technical documents
+- **Enhanced Media Understanding**: Improved multi-page document and complex image analysis
+- **Multimodal RAG Evaluation**: Metrics and evaluation framework for multimodal RAG performance

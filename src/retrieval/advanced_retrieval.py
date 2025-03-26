@@ -8,6 +8,7 @@ import time
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from embeddings.contextual_embeddings import ContextualEmbeddings
+from embeddings.multimodal_embeddings import MultimodalEmbeddings
 from db.elasticsearch_client import ElasticsearchClient
 
 # Configure logging
@@ -219,7 +220,7 @@ class AdvancedRetrieval:
             return []
 
 
-def create_rag_response(query, results, anthropic_client):
+def create_rag_response(query, results, anthropic_client, data_dir=None):
     """
     Create a RAG response using Claude.
     
@@ -227,6 +228,7 @@ def create_rag_response(query, results, anthropic_client):
         query: User query
         results: Search results
         anthropic_client: Anthropic client
+        data_dir: Directory containing media files
         
     Returns:
         Generated response
@@ -239,20 +241,49 @@ def create_rag_response(query, results, anthropic_client):
             
         # Format context from search results
         context = []
+        media_references = []
+        
         for i, result in enumerate(results):
             metadata = result["metadata"]
             context.append(f"Document {i+1}: {metadata.get('title', 'No title')}")
             context.append(f"URL: {metadata.get('url', 'No URL')}")
             context.append(f"Content: {metadata.get('original_content', '')}")
+            
+            # Add media references if available
+            if 'media_references' in metadata and metadata['media_references']:
+                context.append("Media references:")
+                for j, media in enumerate(metadata['media_references']):
+                    media_ref_id = f"doc{i+1}_media{j+1}"
+                    media_type = media.get('type', 'unknown')
+                    media_desc = media.get('alt_text', '') or media.get('link_text', '') or f"{media_type} file"
+                    context.append(f"- {media_ref_id}: {media_desc} ({media_type})")
+                    
+                    # Add to media references list
+                    media_references.append({
+                        "id": media_ref_id,
+                        "path": media.get('path', ''),
+                        "type": media_type,
+                        "description": media_desc,
+                        "doc_index": i
+                    })
+            
             context.append("")
         
         context_text = "\n".join(context)
         
         # Create prompt for Claude
+        media_instruction = ""
+        if media_references:
+            media_instruction = """
+            When it would be helpful to reference visual information, mention the media reference ID in your response.
+            For example: "As shown in doc1_media1, the drone components include..."
+            """
+        
         prompt = f"""
         You are a helpful assistant for Modal AI drone technology. Answer the user's question based only on the provided context.
         If the context doesn't contain the information needed to answer the question, say that you don't have enough information.
         Don't make up information that's not in the context.
+        {media_instruction}
         
         Context:
         {context_text}
@@ -270,7 +301,16 @@ def create_rag_response(query, results, anthropic_client):
             ]
         )
         
-        return response.content[0].text
+        result_text = response.content[0].text
+        
+        # Add additional context about media references
+        if media_references and data_dir:
+            result_text += "\n\nRelevant media references:\n"
+            for media in media_references:
+                if media["id"] in result_text:
+                    result_text += f"- {media['id']}: {media['description']} (File: {media['path']})\n"
+        
+        return result_text
     except Exception as e:
         logger.error(f"Error generating RAG response: {e}")
         return "I'm sorry, but I encountered an error while processing your query. Please try again in a moment."
@@ -301,6 +341,19 @@ def format_results(results):
         if len(content) > 300:
             content = content[:300] + "..."
         output.append(f"Content: {content}")
+        
+        # Add media references if available
+        media_refs = metadata.get('media_references', [])
+        if media_refs:
+            output.append(f"Media references: {len(media_refs)} items")
+            for j, media in enumerate(media_refs[:3]):  # Show only first 3 media items
+                media_type = media.get('type', 'unknown')
+                media_desc = media.get('alt_text', '') or media.get('link_text', '') or f"{media_type} file"
+                output.append(f"  - Media {j+1}: {media_desc} ({media_type})")
+            
+            if len(media_refs) > 3:
+                output.append(f"  - ... and {len(media_refs) - 3} more media items")
+        
         output.append("")
     
     return "\n".join(output)
@@ -314,11 +367,23 @@ def main():
     parser.add_argument("--weaviate-url", default="http://localhost:8080", help="Weaviate URL")
     parser.add_argument("--elastic-url", default="http://localhost:9200", help="Elasticsearch URL")
     parser.add_argument("--query", default=None, help="Query to test (if not provided, runs interactive mode)")
+    parser.add_argument("--multimodal", action="store_true", help="Use multimodal embeddings")
+    parser.add_argument("--data-dir", default="data", help="Directory containing processed media files")
     
     args = parser.parse_args()
     
     # Initialize services
-    embeddings_service = ContextualEmbeddings(weaviate_url=args.weaviate_url)
+    if args.multimodal:
+        logger.info("Using multimodal embeddings")
+        embeddings_service = MultimodalEmbeddings(weaviate_url=args.weaviate_url)
+        # Load processed media if available
+        media_file = os.path.join(args.data_dir, "modalai_processed_media.json")
+        if os.path.exists(media_file):
+            embeddings_service.load_processed_media(media_file)
+    else:
+        logger.info("Using text-only embeddings")
+        embeddings_service = ContextualEmbeddings(weaviate_url=args.weaviate_url)
+    
     elastic_service = ElasticsearchClient(url=args.elastic_url)
     retrieval = AdvancedRetrieval(embeddings_service, elastic_service)
     
@@ -332,7 +397,12 @@ def main():
         print(format_results(results))
         
         print("\n=== Generated Answer ===")
-        rag_response = create_rag_response(args.query, results, anthropic_client)
+        rag_response = create_rag_response(
+            args.query, 
+            results, 
+            anthropic_client, 
+            data_dir=args.data_dir if args.multimodal else None
+        )
         print(rag_response)
     else:
         # Interactive mode
@@ -352,7 +422,12 @@ def main():
             print(format_results(results))
             
             print("\n=== Generated Answer ===")
-            rag_response = create_rag_response(query, results, anthropic_client)
+            rag_response = create_rag_response(
+                query, 
+                results, 
+                anthropic_client, 
+                data_dir=args.data_dir if args.multimodal else None
+            )
             print(rag_response)
 
 if __name__ == "__main__":

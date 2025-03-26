@@ -109,18 +109,33 @@ def run_media_processor(args):
 
 def run_embeddings(args):
     """Generate contextual embeddings and store in Weaviate."""
-    from src.embeddings.contextual_embeddings import ContextualEmbeddings
-    
-    logger.info("Generating contextual embeddings...")
-    embeddings = ContextualEmbeddings(
-        weaviate_url=args.weaviate_url,
-        class_name=args.class_name
-    )
-    embeddings.process_and_store(
-        dataset_path=str(BASE_DIR / "data" / args.input),
-        parallel_threads=args.threads
-    )
-    logger.info("Embedding generation completed")
+    if args.multimodal:
+        from src.embeddings.multimodal_embeddings import MultimodalEmbeddings
+        
+        logger.info("Generating multimodal contextual embeddings...")
+        embeddings = MultimodalEmbeddings(
+            weaviate_url=args.weaviate_url,
+            class_name=args.class_name
+        )
+        embeddings.process_and_store(
+            dataset_path=str(BASE_DIR / "data" / args.input),
+            media_file=str(BASE_DIR / "data" / args.media_file),
+            parallel_threads=args.threads
+        )
+        logger.info("Multimodal embedding generation completed")
+    else:
+        from src.embeddings.contextual_embeddings import ContextualEmbeddings
+        
+        logger.info("Generating contextual embeddings (text-only)...")
+        embeddings = ContextualEmbeddings(
+            weaviate_url=args.weaviate_url,
+            class_name=args.class_name
+        )
+        embeddings.process_and_store(
+            dataset_path=str(BASE_DIR / "data" / args.input),
+            parallel_threads=args.threads
+        )
+        logger.info("Embedding generation completed")
 
 def run_retrieval(args):
     """Run the retrieval system."""
@@ -130,10 +145,16 @@ def run_retrieval(args):
     sys.argv = [
         sys.argv[0],
         "--weaviate-url", args.weaviate_url,
-        "--elastic-url", args.elastic_url
+        "--elastic-url", args.elastic_url,
+        "--data-dir", str(BASE_DIR / "data")
     ]
+    
     if args.query:
         sys.argv.extend(["--query", args.query])
+    
+    if args.multimodal:
+        logger.info("Using multimodal retrieval")
+        sys.argv.append("--multimodal")
     
     retrieval_main()
 
@@ -175,12 +196,15 @@ def main():
     embeddings_parser.add_argument("--threads", type=int, default=5, help="Number of parallel threads")
     embeddings_parser.add_argument("--weaviate-url", default="http://localhost:8080", help="Weaviate URL")
     embeddings_parser.add_argument("--class-name", default="ModalAIDocument", help="Weaviate class name")
+    embeddings_parser.add_argument("--multimodal", action="store_true", help="Use multimodal embeddings")
+    embeddings_parser.add_argument("--media-file", default="modalai_processed_media.json", help="Processed media data file")
     
     # Retrieval command
     retrieval_parser = subparsers.add_parser("retrieve", help="Run retrieval system")
     retrieval_parser.add_argument("--weaviate-url", default="http://localhost:8080", help="Weaviate URL")
     retrieval_parser.add_argument("--elastic-url", default="http://localhost:9200", help="Elasticsearch URL")
     retrieval_parser.add_argument("--query", help="Optional query to run (otherwise interactive mode)")
+    retrieval_parser.add_argument("--multimodal", action="store_true", help="Use multimodal retrieval with media references")
     
     # Chat command
     chat_parser = subparsers.add_parser("chat", help="Start chat server")
@@ -196,6 +220,7 @@ def main():
     pipeline_parser.add_argument("--download-media", action="store_true", help="Download and process media files")
     pipeline_parser.add_argument("--max-workers", type=int, default=5, help="Maximum number of concurrent download workers")
     pipeline_parser.add_argument("--process-media", action="store_true", help="Process media files with Unstructured.io")
+    pipeline_parser.add_argument("--multimodal-embeddings", action="store_true", help="Use multimodal embeddings")
     
     args = parser.parse_args()
     
@@ -246,7 +271,9 @@ def main():
             input="modalai_chunks.json",
             threads=args.threads,
             weaviate_url=args.weaviate_url,
-            class_name="ModalAIDocument"
+            class_name="ModalAIDocument",
+            multimodal=args.multimodal_embeddings,
+            media_file="modalai_processed_media.json"
         )
         
         # Run the pipeline steps
@@ -258,6 +285,9 @@ def main():
             run_media_processor(media_args)
         
         run_embeddings(embed_args)
+        
+        # Start the chat interface, which will use the appropriate embeddings
+        # based on whether multimodal embeddings were generated
         run_chat(args)
     else:
         parser.print_help()

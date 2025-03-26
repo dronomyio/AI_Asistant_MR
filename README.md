@@ -7,6 +7,10 @@ This project implements an advanced Retrieval Augmented Generation (RAG) system 
 - **Web Scraping**: Automatically downloads and processes the Modal AI documentation
   - **Multimedia Content**: Downloads images, videos, and document files (PDFs, STEP files, etc.)
   - **Concurrent Processing**: Efficiently handles multiple downloads simultaneously
+- **Media Processing**: Extracts content from various media types using Unstructured.io
+  - **OCR for Images**: Extracts text from diagrams, charts, and photos
+  - **PDF Processing**: Extracts text, tables, and structure from PDF documents
+  - **Document Handling**: Processes various document formats (DOCX, PPTX, etc.)
 - **Contextual Embeddings**: Uses Claude to generate context for each document chunk
 - **Weaviate Vector Storage**: Stores embeddings in a powerful vector database
 - **Hybrid Search**: Combines vector similarity and BM25 for better retrieval
@@ -34,6 +38,7 @@ modalai_docs_project/
 │   │   └── __init__.py
 │   ├── processor/            # Document processing
 │   │   ├── document_processor.py
+│   │   ├── media_processor.py    # Media processing with Unstructured.io
 │   │   └── __init__.py
 │   ├── embeddings/           # Contextual embeddings
 │   │   ├── contextual_embeddings.py
@@ -49,6 +54,7 @@ modalai_docs_project/
 │   │   └── <page_subdirs>/   # Media organized by page
 │   ├── modalai_docs.json     # Raw document data
 │   ├── modalai_media.json    # Media catalog
+│   ├── modalai_processed_media.json # Processed media data from Unstructured.io
 │   └── modalai_chunks.json   # Processed document chunks
 ├── docker-compose.yml        # Docker services configuration
 ├── Dockerfile                # Container build configuration
@@ -92,11 +98,17 @@ The entire system is containerized for easy deployment:
    # Process documents into chunks
    docker-compose exec app python run.py process
    
+   # Process downloaded media files with Unstructured.io
+   docker-compose exec app python run.py process-media
+   
    # Generate contextual embeddings
    docker-compose exec app python run.py embed
    
    # Start the chat server
    docker-compose exec app python run.py chat
+   
+   # Run complete pipeline with multimedia support
+   docker-compose exec app python run.py pipeline --download-media --process-media
    ```
 
 5. Access the chat interface at http://localhost:5005
@@ -172,6 +184,10 @@ For local development without Docker:
   - Chunks documents and generates contextual embeddings
   - Media cataloging and organization
   - Integrates media references with document chunks
+  - Unstructured.io integration for media content extraction:
+    - OCR for images to extract text
+    - PDF processing for text, tables, and structure
+    - Various document format handling
 - **Storage Layer**: 
   - Weaviate: Stores vector embeddings for semantic search
   - Elasticsearch: Provides BM25 text search capabilities
@@ -204,10 +220,13 @@ The chat interface provides:
 - **Weaviate**: Vector database for semantic search
 - **Elasticsearch**: For BM25 text search
 - **Cohere**: For reranking search results
+- **Unstructured.io**: For processing multimedia content (images, PDFs)
+- **Tesseract OCR**: For text extraction from images
 - **Flask & Socket.IO**: For the chat web interface
 
 ## Future Enhancements
 
-- **Unstructured.io Integration**: Plan to integrate Unstructured.io for processing the downloaded multimedia content (images, PDFs, etc.) to extract text and structural information
-- **Media Content in RAG**: Enhance retrieval to include references to relevant images and documents
-- **Multimodal Generation**: Leverage Claude's multimodal capabilities to reference images in responses
+- **Multimodal RAG**: Incorporate processed media content in the retrieval process
+- **Media References in Responses**: Include relevant images and document links in answers
+- **Image Captioning**: Generate descriptive captions for images using LLMs
+- **Enhanced PDF Understanding**: Improved table and structure extraction from technical documents

@@ -205,4 +205,9 @@ The chat interface provides:
 - **Elasticsearch**: For BM25 text search
 - **Cohere**: For reranking search results
 - **Flask & Socket.IO**: For the chat web interface
-- **Unstructured.io**: (Planned) For processing multimedia content
+
+## Future Enhancements
+
+- **Unstructured.io Integration**: Plan to integrate Unstructured.io for processing the downloaded multimedia content (images, PDFs, etc.) to extract text and structural information
+- **Media Content in RAG**: Enhance retrieval to include references to relevant images and documents
+- **Multimodal Generation**: Leverage Claude's multimodal capabilities to reference images in responses

@@ -207,9 +207,9 @@ For local development without Docker:
   - Multimodal embeddings incorporating processed media content
   - Media-aware context generation using Claude
 - **Storage Layer**: 
-  - Weaviate: Stores vector embeddings with media references
+  - Weaviate: Stores vector embeddings with JSON-serialized media references
   - Elasticsearch: Provides BM25 text search capabilities
-  - File System: Organizes media files by source page
+  - File System: Organizes media files by source page in structured hierarchy
 - **Retrieval Layer**: 
   - Hybrid search combining results from Weaviate and Elasticsearch
   - Reranking for improved result ordering
@@ -221,6 +221,22 @@ For local development without Docker:
   - Lists related media files with descriptions
 - **Interface Layer**: Web UI using Flask and Socket.IO for real-time communication
 
+## Technical Implementation
+
+### Media Storage & Retrieval
+
+The system uses a sophisticated approach to handle multimedia content:
+
+1. **File Organization**: Media files are downloaded to a structured directory hierarchy based on their source pages
+2. **Metadata Tracking**: Each media file is tracked with metadata including content type, descriptions, and source information
+3. **Weaviate Integration**:
+   - Media references are serialized to JSON strings and stored in Weaviate's `mediaReferences` property
+   - During retrieval, JSON strings are parsed back into structured objects
+   - Media references are included in search results to enhance RAG responses
+4. **Context Building**: Processed media content from Unstructured.io is included in context generation for Claude
+
+This design ensures that relevant media content is seamlessly incorporated into the retrieval and generation process.
+
 ## Chat Interface
 
 The chat interface provides:
@@ -229,6 +245,7 @@ The chat interface provides:
 - Source citations for every answer
 - Status indicators for system state
 - Mobile-friendly responsive design
+- References to relevant media files when available
 
 ## References
 
@@ -253,3 +270,5 @@ The chat interface provides:
 - **Image Captioning**: Generate descriptive captions for images using LLMs
 - **Enhanced Media Understanding**: Improved multi-page document and complex image analysis
 - **Multimodal RAG Evaluation**: Metrics and evaluation framework for multimodal RAG performance
+- **Vector Database Optimization**: Explore advanced vector storage options like Weaviate's multi2vec for true multimodal vectors
+- **Interactive Media References**: Enable clicking on media references to view the full-size media files

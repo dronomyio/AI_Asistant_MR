@@ -29,7 +29,7 @@ def check_environment():
 
 def create_directories():
     """Create necessary directories if they don't exist."""
-    dirs = ["data", "app/static", "app/templates"]
+    dirs = ["data", "data/media", "app/static", "app/templates"]
     for dir_path in dirs:
         Path(BASE_DIR / dir_path).mkdir(parents=True, exist_ok=True)
     
@@ -41,8 +41,27 @@ def run_scraper(args):
     
     logger.info("Starting Modal AI documentation scraper...")
     scraper = ModalAIScraper(output_dir=str(BASE_DIR / "data"))
-    scraper.crawl(max_pages=args.max_pages)
-    scraper.save_docs()
+    
+    # Configure media downloading if requested
+    if args.download_media:
+        logger.info("Media downloading enabled")
+        # File extensions are already set in the scraper
+    else:
+        # Disable media downloading
+        scraper.file_extensions = []
+    
+    # Start crawling with specified parameters
+    scraper.crawl(
+        max_pages=args.max_pages,
+        max_workers=args.max_workers
+    )
+    
+    # Save the results
+    scraper.save_docs(
+        filename=args.docs_file,
+        media_catalog_file=args.media_catalog
+    )
+    
     logger.info("Scraping completed")
 
 def run_processor(args):
@@ -57,10 +76,36 @@ def run_processor(args):
     processor.process_documents(
         input_file=args.input,
         output_file=args.output,
+        media_catalog_file=args.media_catalog,
         chunk_size=args.chunk_size,
         overlap=args.overlap
     )
     logger.info("Document processing completed")
+
+def run_media_processor(args):
+    """Process media files using Unstructured.io."""
+    from src.processor.media_processor import MediaProcessor
+    
+    # Check if media catalog exists
+    media_catalog_path = BASE_DIR / "data" / args.catalog
+    if not os.path.exists(media_catalog_path):
+        logger.error(f"Media catalog not found at {media_catalog_path}")
+        logger.info("Please run the scraper with --download-media first")
+        return False
+    
+    logger.info("Processing media files with Unstructured.io...")
+    processor = MediaProcessor(
+        media_dir=str(BASE_DIR / "data" / "media"),
+        output_dir=str(BASE_DIR / "data")
+    )
+    
+    processor.process_and_save(
+        catalog_file=args.catalog,
+        output_file=args.output
+    )
+    
+    logger.info("Media processing completed")
+    return True
 
 def run_embeddings(args):
     """Generate contextual embeddings and store in Weaviate."""
@@ -106,13 +151,23 @@ def main():
     # Scraper command
     scraper_parser = subparsers.add_parser("scrape", help="Scrape Modal AI documentation")
     scraper_parser.add_argument("--max-pages", type=int, default=200, help="Maximum number of pages to scrape")
+    scraper_parser.add_argument("--download-media", action="store_true", help="Download media files (images, videos, documents)")
+    scraper_parser.add_argument("--max-workers", type=int, default=5, help="Maximum number of concurrent download workers")
+    scraper_parser.add_argument("--docs-file", default="modalai_docs.json", help="Output JSON file for documents")
+    scraper_parser.add_argument("--media-catalog", default="modalai_media.json", help="Output JSON file for media catalog")
     
     # Processor command
     processor_parser = subparsers.add_parser("process", help="Process documents into chunks")
     processor_parser.add_argument("--input", default="modalai_docs.json", help="Input JSON file")
     processor_parser.add_argument("--output", default="modalai_chunks.json", help="Output JSON file")
+    processor_parser.add_argument("--media-catalog", default="modalai_media.json", help="Media catalog JSON file")
     processor_parser.add_argument("--chunk-size", type=int, default=800, help="Size of each chunk in characters")
     processor_parser.add_argument("--overlap", type=int, default=100, help="Overlap between chunks in characters")
+    
+    # Media processor command
+    media_parser = subparsers.add_parser("process-media", help="Process media files using Unstructured.io")
+    media_parser.add_argument("--catalog", default="modalai_media.json", help="Media catalog JSON file")
+    media_parser.add_argument("--output", default="modalai_processed_media.json", help="Output JSON file for processed media")
     
     # Embeddings command
     embeddings_parser = subparsers.add_parser("embed", help="Generate contextual embeddings")
@@ -138,6 +193,9 @@ def main():
     pipeline_parser.add_argument("--threads", type=int, default=5, help="Number of parallel threads for embedding")
     pipeline_parser.add_argument("--weaviate-url", default="http://localhost:8080", help="Weaviate URL")
     pipeline_parser.add_argument("--elastic-url", default="http://localhost:9200", help="Elasticsearch URL")
+    pipeline_parser.add_argument("--download-media", action="store_true", help="Download and process media files")
+    pipeline_parser.add_argument("--max-workers", type=int, default=5, help="Maximum number of concurrent download workers")
+    pipeline_parser.add_argument("--process-media", action="store_true", help="Process media files with Unstructured.io")
     
     args = parser.parse_args()
     
@@ -153,6 +211,8 @@ def main():
         run_scraper(args)
     elif args.command == "process":
         run_processor(args)
+    elif args.command == "process-media":
+        run_media_processor(args)
     elif args.command == "embed":
         run_embeddings(args)
     elif args.command == "retrieve":
@@ -161,13 +221,27 @@ def main():
         run_chat(args)
     elif args.command == "pipeline":
         # Run the full pipeline
-        scrape_args = argparse.Namespace(max_pages=args.max_pages)
+        scrape_args = argparse.Namespace(
+            max_pages=args.max_pages,
+            download_media=args.download_media,
+            max_workers=args.max_workers,
+            docs_file="modalai_docs.json",
+            media_catalog="modalai_media.json"
+        )
+        
         process_args = argparse.Namespace(
             input="modalai_docs.json",
             output="modalai_chunks.json",
+            media_catalog="modalai_media.json",
             chunk_size=args.chunk_size,
             overlap=args.overlap
         )
+        
+        media_args = argparse.Namespace(
+            catalog="modalai_media.json",
+            output="modalai_processed_media.json"
+        )
+        
         embed_args = argparse.Namespace(
             input="modalai_chunks.json",
             threads=args.threads,
@@ -175,8 +249,14 @@ def main():
             class_name="ModalAIDocument"
         )
         
+        # Run the pipeline steps
         run_scraper(scrape_args)
         run_processor(process_args)
+        
+        # Process media files if requested
+        if args.download_media and args.process_media:
+            run_media_processor(media_args)
+        
         run_embeddings(embed_args)
         run_chat(args)
     else:

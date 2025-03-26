@@ -7,6 +7,10 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
     curl \
+    poppler-utils \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements file

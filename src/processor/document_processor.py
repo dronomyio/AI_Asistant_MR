@@ -81,13 +81,15 @@ class DocumentProcessor:
         
         return chunks
     
-    def process_documents(self, input_file="modalai_docs.json", output_file="modalai_chunks.json", chunk_size=800, overlap=100):
+    def process_documents(self, input_file="modalai_docs.json", output_file="modalai_chunks.json", 
+                       media_catalog_file="modalai_media.json", chunk_size=800, overlap=100):
         """
         Process documents from input file, chunk them, and save to output file.
         
         Args:
             input_file: Name of input JSON file with raw documents
             output_file: Name of output JSON file for processed documents
+            media_catalog_file: Name of input JSON file with media catalog
             chunk_size: Size of each chunk in characters
             overlap: Number of characters to overlap between chunks
             
@@ -96,6 +98,7 @@ class DocumentProcessor:
         """
         input_path = os.path.join(self.input_dir, input_file)
         output_path = os.path.join(self.output_dir, output_file)
+        media_catalog_path = os.path.join(self.input_dir, media_catalog_file)
         
         # Load documents
         try:
@@ -106,11 +109,37 @@ class DocumentProcessor:
             logger.error(f"Error loading documents from {input_path}: {e}")
             return []
         
+        # Load media catalog if available
+        media_catalog = {}
+        try:
+            if os.path.exists(media_catalog_path):
+                with open(media_catalog_path, 'r') as f:
+                    media_catalog = json.load(f)
+                    logger.info(f"Loaded media catalog with {len(media_catalog)} entries from {media_catalog_path}")
+        except Exception as e:
+            logger.error(f"Error loading media catalog from {media_catalog_path}: {e}")
+        
         processed_docs = []
         
         for i, doc in enumerate(tqdm(docs, desc="Processing documents")):
             doc_id = f"doc_{i}"
             doc_uuid = str(uuid.uuid4())
+            
+            # Process media if available
+            media_info = []
+            for media in doc.get('media', []):
+                media_path = media.get('path')
+                if media_path:
+                    # Add media info
+                    media_info.append({
+                        "type": media.get('type', 'unknown'),
+                        "path": media_path,
+                        "content_type": media.get('content_type', ''),
+                        "alt_text": media.get('alt_text', ''),
+                        "link_text": media.get('link_text', ''),
+                        "original_url": media.get('original_url', ''),
+                        "size": media.get('size', 0)
+                    })
             
             # Create document object
             processed_doc = {
@@ -119,7 +148,8 @@ class DocumentProcessor:
                 "title": doc.get('title', ''),
                 "url": doc.get('url', ''),
                 "content": doc.get('content', ''),
-                "chunks": self.chunk_document({**doc, 'doc_id': doc_id}, chunk_size, overlap)
+                "chunks": self.chunk_document({**doc, 'doc_id': doc_id}, chunk_size, overlap),
+                "media": media_info
             }
             
             processed_docs.append(processed_doc)
@@ -130,7 +160,8 @@ class DocumentProcessor:
                 json.dump(processed_docs, f, indent=2)
                 
             total_chunks = sum(len(doc['chunks']) for doc in processed_docs)
-            logger.info(f"Processed {len(processed_docs)} documents with {total_chunks} chunks")
+            total_media = sum(len(doc.get('media', [])) for doc in processed_docs)
+            logger.info(f"Processed {len(processed_docs)} documents with {total_chunks} chunks and {total_media} media files")
             logger.info(f"Saved to {output_path}")
         except Exception as e:
             logger.error(f"Error saving processed documents to {output_path}: {e}")
@@ -145,6 +176,7 @@ def main():
     parser = argparse.ArgumentParser(description="Process Modal AI documentation into chunks")
     parser.add_argument("--input", default="modalai_docs.json", help="Input JSON file")
     parser.add_argument("--output", default="modalai_chunks.json", help="Output JSON file")
+    parser.add_argument("--media-catalog", default="modalai_media.json", help="Media catalog JSON file")
     parser.add_argument("--chunk-size", type=int, default=800, help="Size of each chunk in characters")
     parser.add_argument("--overlap", type=int, default=100, help="Overlap between chunks in characters")
     parser.add_argument("--input-dir", default="data", help="Input directory")
@@ -156,6 +188,7 @@ def main():
     processor.process_documents(
         input_file=args.input, 
         output_file=args.output,
+        media_catalog_file=args.media_catalog,
         chunk_size=args.chunk_size,
         overlap=args.overlap
     )

@@ -5,6 +5,8 @@ This project implements an advanced Retrieval Augmented Generation (RAG) system 
 ## Features
 
 - **Web Scraping**: Automatically downloads and processes the Modal AI documentation
+  - **Multimedia Content**: Downloads images, videos, and document files (PDFs, STEP files, etc.)
+  - **Concurrent Processing**: Efficiently handles multiple downloads simultaneously
 - **Contextual Embeddings**: Uses Claude to generate context for each document chunk
 - **Weaviate Vector Storage**: Stores embeddings in a powerful vector database
 - **Hybrid Search**: Combines vector similarity and BM25 for better retrieval
@@ -28,7 +30,7 @@ modalai_docs_project/
 │   │   ├── weaviate_client.py
 │   │   └── __init__.py
 │   ├── scraper/              # Web scraping
-│   │   ├── modal_ai_scraper.py
+│   │   ├── modal_ai_scraper.py  # Enhanced with multimedia support
 │   │   └── __init__.py
 │   ├── processor/            # Document processing
 │   │   ├── document_processor.py
@@ -43,6 +45,11 @@ modalai_docs_project/
 │   │   └── __init__.py
 │   └── __init__.py
 ├── data/                     # Data storage directory
+│   ├── media/                # Downloaded media files
+│   │   └── <page_subdirs>/   # Media organized by page
+│   ├── modalai_docs.json     # Raw document data
+│   ├── modalai_media.json    # Media catalog
+│   └── modalai_chunks.json   # Processed document chunks
 ├── docker-compose.yml        # Docker services configuration
 ├── Dockerfile                # Container build configuration
 ├── run.py                    # CLI entry point
@@ -73,8 +80,14 @@ The entire system is containerized for easy deployment:
 
 4. Or run specific parts:
    ```
-   # Scrape the documentation
+   # Scrape the documentation (text only)
    docker-compose exec app python run.py scrape
+   
+   # Scrape the documentation with multimedia content
+   docker-compose exec app python run.py scrape --download-media
+   
+   # Customize media downloading
+   docker-compose exec app python run.py scrape --download-media --max-workers 10
    
    # Process documents into chunks
    docker-compose exec app python run.py process
@@ -150,13 +163,23 @@ For local development without Docker:
 ## Component Architecture
 
 - **Scraping Layer**: Retrieves documentation from the Modal AI website
-- **Processing Layer**: Chunks documents and generates contextual embeddings
+  - Text extraction for document content
+  - Image and video download capability
+  - Document file (PDF, STEP, etc.) collection
+  - Media metadata extraction
+  - Concurrent processing with thread pooling
+- **Processing Layer**: 
+  - Chunks documents and generates contextual embeddings
+  - Media cataloging and organization
+  - Integrates media references with document chunks
 - **Storage Layer**: 
   - Weaviate: Stores vector embeddings for semantic search
   - Elasticsearch: Provides BM25 text search capabilities
+  - File System: Organizes media files by source page
 - **Retrieval Layer**: 
   - Hybrid search combining results from Weaviate and Elasticsearch
   - Reranking for improved result ordering
+  - Media file reference resolution
 - **Generation Layer**: Creates RAG responses using Claude
 - **Interface Layer**: Web UI using Flask and Socket.IO for real-time communication
 
@@ -181,4 +204,5 @@ The chat interface provides:
 - **Weaviate**: Vector database for semantic search
 - **Elasticsearch**: For BM25 text search
 - **Cohere**: For reranking search results
-- **Flask & Socket.IO**: For the chat web interface# AI_Asistant_MR
+- **Flask & Socket.IO**: For the chat web interface
+- **Unstructured.io**: (Planned) For processing multimedia content

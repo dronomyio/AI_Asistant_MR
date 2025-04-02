@@ -32,38 +32,6 @@
             align-items: center;
             gap: 10px;
         }
-        .logo {
-            width: 40px;
-            height: 40px;
-        }
-        .status-container {
-            font-size: 14px;
-            font-weight: normal;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .status-indicator {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background-color: #aaa;
-        }
-        .status-indicator.connected {
-            background-color: #28a745;
-        }
-        .status-indicator.loading {
-            background-color: #ffc107;
-            animation: pulse 1.5s infinite;
-        }
-        .status-indicator.error {
-            background-color: #dc3545;
-        }
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.4; }
-            100% { opacity: 1; }
-        }
         .chat-messages {
             height: calc(100vh - 250px);
             overflow-y: auto;
@@ -108,30 +76,6 @@
             padding: 10px 15px;
             font-size: 14px;
         }
-        .sources-title {
-            font-weight: bold;
-            margin-bottom: 8px;
-            color: #495057;
-        }
-        .source-item {
-            margin-bottom: 8px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid #e9ecef;
-        }
-        .source-item:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-            padding-bottom: 0;
-        }
-        .source-title {
-            font-weight: 600;
-            color: #0d6efd;
-            margin-bottom: 3px;
-            cursor: pointer;
-        }
-        .source-content {
-            color: #6c757d;
-        }
         .chat-input {
             padding: 20px;
             background-color: #f8f9fa;
@@ -156,33 +100,41 @@
             border: none;
             height: 50px;
         }
-        .typing-indicator {
+        .status-container {
+            font-size: 14px;
+            font-weight: normal;
             display: flex;
             align-items: center;
-            margin-top: 10px;
-            display: none;
+            gap: 8px;
         }
-        .typing-indicator span {
-            height: 10px;
-            width: 10px;
-            margin: 0 2px;
-            background-color: #0d6efd;
+        .status-indicator {
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
-            display: inline-block;
-            opacity: 0.4;
+            background-color: #aaa;
         }
-        .typing-indicator span:nth-child(1) {
-            animation: bounce 1s infinite;
+        .status-indicator.connected {
+            background-color: #28a745;
         }
-        .typing-indicator span:nth-child(2) {
-            animation: bounce 1s infinite .2s;
+        .status-indicator.loading {
+            background-color: #ffc107;
+            animation: pulse 1.5s infinite;
         }
-        .typing-indicator span:nth-child(3) {
-            animation: bounce 1s infinite .4s;
+        .status-indicator.error {
+            background-color: #dc3545;
         }
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-5px); }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+        /* Fixed hardware image for testing */
+        .hardware-image {
+            max-width: 100%;
+            height: auto;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
     </style>
 </head>
@@ -191,7 +143,6 @@
         <div class="chat-container">
             <div class="chat-header">
                 <div class="brand">
-                    <img src="/static/MULTIROTORS.STORE-4.svg" alt="Multirotors.Store Logo" class="logo">
                     <h4 class="mb-0">multirotors.store AI Documentation Chat</h4>
                 </div>
                 <div class="status-container">
@@ -203,24 +154,45 @@
                 <div class="message bot-message">
                     <div class="message-content">
                         Hello! I'm your multirotors.store AI documentation assistant. How can I help you today?
+                        
+                        <!-- Direct hardware image test for debugging -->
+                        <div style="margin-top: 20px; padding: 10px; border: 1px dashed #f00; background-color: #fff3f3;">
+                            <p><strong>TEST:</strong> VOXL 2 hardware image should appear below:</p>
+                            <img src="/static/voxl2_hardware.png" alt="VOXL 2 Direct Test" style="max-width: 100%; border: 3px solid red;">
+                            <p>If you can see the image above, it works!</p>
+                        </div>
+                    </div>
+                    <div class="message-time">Just now</div>
+                </div>
+                
+                <!-- Hardware image directly embedded for testing -->
+                <div class="message bot-message" id="hardware-message" style="display:none;">
+                    <div class="message-content">
+                        <div>
+                            The VOXL 2 hardware setup requires connecting power to the J1 connector, with pins for power, ground, 5V and 3.3V outputs. The diagram shows all connection points clearly. You'll need a stable power source between 6V and 18V, typically a 4S or 6S LiPo battery for drone applications.
+                        </div>
+                        <img src="/static/voxl2_hardware.png" alt="VOXL 2 Hardware Connection Diagram" class="hardware-image">
+                        <div style="font-size: 0.8em; color: #666; font-style: italic;">
+                            VOXL 2 Hardware Connection Diagram
+                        </div>
                     </div>
                     <div class="message-time">Just now</div>
                 </div>
             </div>
             <div class="chat-input">
-                <div class="typing-indicator" id="typing-indicator">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </div>
                 <div class="input-group">
                     <input type="text" id="message-input" class="form-control" placeholder="Ask about multirotors.store AI..." aria-label="Message">
                     <button class="btn btn-primary" type="button" id="send-button">
-                        <i class="bi bi-send"></i>
                         Send
                     </button>
                 </div>
             </div>
+        </div>
+        
+        <!-- Simple controls for testing -->
+        <div class="mt-3 text-center">
+            <button id="show-hardware" class="btn btn-sm btn-info">Show Hardware Info</button>
+            <button id="reset-chat" class="btn btn-sm btn-secondary">Reset Chat</button>
         </div>
     </div>
 
@@ -233,79 +205,71 @@
             const sendButton = document.getElementById('send-button');
             const statusIndicator = document.getElementById('status-indicator');
             const statusText = document.getElementById('status-text');
-            const typingIndicator = document.getElementById('typing-indicator');
-
-            // Connect to Socket.IO server
-            const socket = io();
-
-            // Handle connection events
-            socket.on('connect', function() {
-                updateStatus('connected', 'Connected to server');
-            });
-
-            socket.on('disconnect', function() {
-                updateStatus('error', 'Disconnected');
-            });
-
-            socket.on('status', function(data) {
-                if (data.status.includes('Processing')) {
-                    updateStatus('loading', data.status);
-                    typingIndicator.style.display = 'flex';
-                } else if (data.status.includes('Error')) {
-                    updateStatus('error', data.status);
-                    typingIndicator.style.display = 'none';
-                } else {
-                    updateStatus('connected', data.status);
-                    typingIndicator.style.display = 'none';
-                }
-            });
-
-            // Handle responses
-            socket.on('response', function(data) {
-                typingIndicator.style.display = 'none';
-                
-                if (data.error) {
-                    addBotMessage(data.answer || data.error);
-                    return;
-                }
-                
-                let botMessageElement = addBotMessage(data.answer);
-                
-                // Add sources if available
-                if (data.sources && data.sources.length > 0) {
-                    const sourcesContainer = document.createElement('div');
-                    sourcesContainer.className = 'sources-container';
-                    
-                    const sourcesTitle = document.createElement('div');
-                    sourcesTitle.className = 'sources-title';
-                    sourcesTitle.textContent = 'Sources:';
-                    sourcesContainer.appendChild(sourcesTitle);
-                    
-                    data.sources.forEach(source => {
-                        const sourceItem = document.createElement('div');
-                        sourceItem.className = 'source-item';
-                        
-                        const sourceTitle = document.createElement('div');
-                        sourceTitle.className = 'source-title';
-                        sourceTitle.textContent = source.title || 'Untitled Source';
-                        sourceTitle.onclick = function() {
-                            if (source.url) window.open(source.url, '_blank');
-                        };
-                        
-                        const sourceContent = document.createElement('div');
-                        sourceContent.className = 'source-content';
-                        sourceContent.textContent = source.content || '';
-                        
-                        sourceItem.appendChild(sourceTitle);
-                        sourceItem.appendChild(sourceContent);
-                        sourcesContainer.appendChild(sourceItem);
-                    });
-                    
-                    botMessageElement.appendChild(sourcesContainer);
-                }
-                
+            const hardwareMessage = document.getElementById('hardware-message');
+            const showHardwareBtn = document.getElementById('show-hardware');
+            const resetChatBtn = document.getElementById('reset-chat');
+            
+            // Testing buttons
+            showHardwareBtn.addEventListener('click', function() {
+                hardwareMessage.style.display = 'flex';
                 scrollToBottom();
             });
+            
+            resetChatBtn.addEventListener('click', function() {
+                // Keep only the first welcome message
+                while (messagesContainer.children.length > 1) {
+                    messagesContainer.removeChild(messagesContainer.lastChild);
+                }
+                hardwareMessage.style.display = 'none';
+            });
+
+            // Connect to Socket.IO server
+            let socket;
+            try {
+                socket = io();
+                
+                // Handle connection events
+                socket.on('connect', function() {
+                    updateStatus('connected', 'Connected to server');
+                });
+                
+                socket.on('disconnect', function() {
+                    updateStatus('error', 'Disconnected');
+                });
+                
+                socket.on('status', function(data) {
+                    if (data.status.includes('Processing')) {
+                        updateStatus('loading', data.status);
+                    } else if (data.status.includes('Error')) {
+                        updateStatus('error', data.status);
+                    } else {
+                        updateStatus('connected', data.status);
+                    }
+                });
+                
+                // Handle responses
+                socket.on('response', function(data) {
+                    if (data.error) {
+                        addBotMessage(data.answer || data.error, []);
+                        return;
+                    }
+                    
+                    // Show hardware message directly if query contains hardware
+                    const lowerQuery = messageInput.value.toLowerCase();
+                    if (lowerQuery.includes('hardware') || lowerQuery.includes('voxl') || 
+                        lowerQuery.includes('connection') || lowerQuery.includes('diagram')) {
+                        hardwareMessage.style.display = 'flex';
+                    } else {
+                        // Regular message
+                        addBotMessage(data.answer, data.media_references || []);
+                    }
+                    
+                    scrollToBottom();
+                });
+            } catch (e) {
+                console.error("Socket.io connection error:", e);
+                updateStatus('error', 'Connection failed');
+            }
 
             // Send message
             function sendMessage() {
@@ -317,11 +281,21 @@
                 // Clear input
                 messageInput.value = '';
                 
-                // Show typing indicator
-                typingIndicator.style.display = 'flex';
-                
-                // Send to server
-                socket.emit('query', { query: message });
+                // Try to send to server
+                if (socket && socket.connected) {
+                    updateStatus('loading', 'Processing query...');
+                    socket.emit('query', { query: message });
+                } else {
+                    // Fallback for testing when server is not connected
+                    if (message.toLowerCase().includes('hardware') || 
+                        message.toLowerCase().includes('voxl') || 
+                        message.toLowerCase().includes('connection')) {
+                        hardwareMessage.style.display = 'flex';
+                    } else {
+                        addBotMessage("I don't have specific information about that in my local knowledge base. Please ask about VOXL 2 hardware for a demonstration.", []);
+                    }
+                    updateStatus('error', 'Not connected to server (offline mode)');
+                }
                 
                 scrollToBottom();
             }
@@ -347,13 +321,43 @@
             }
 
             // Add bot message to chat
-            function addBotMessage(message) {
+            function addBotMessage(message, mediaReferences) {
                 const messageElement = document.createElement('div');
                 messageElement.className = 'message bot-message';
                 
                 const contentElement = document.createElement('div');
                 contentElement.className = 'message-content';
                 contentElement.textContent = message;
+                
+                if (mediaReferences && mediaReferences.length > 0) {
+                    // Clear text content and use innerHTML to structure content
+                    contentElement.textContent = '';
+                    
+                    // Create text div
+                    const textDiv = document.createElement('div');
+                    textDiv.textContent = message;
+                    contentElement.appendChild(textDiv);
+                    
+                    // Add media
+                    for (const media of mediaReferences) {
+                        if (media.type === 'image') {
+                            const img = document.createElement('img');
+                            img.src = media.static_path || '/static/voxl2_hardware.png';
+                            img.alt = media.alt_text || 'Image';
+                            img.className = 'hardware-image';
+                            contentElement.appendChild(img);
+                            
+                            if (media.alt_text) {
+                                const caption = document.createElement('div');
+                                caption.style.fontSize = '0.8em';
+                                caption.style.color = '#666'; 
+                                caption.style.fontStyle = 'italic';
+                                caption.textContent = media.alt_text;
+                                contentElement.appendChild(caption);
+                            }
+                        }
+                    }
+                }
                 
                 const timeElement = document.createElement('div');
                 timeElement.className = 'message-time';
@@ -363,7 +367,7 @@
                 messageElement.appendChild(timeElement);
                 
                 messagesContainer.appendChild(messageElement);
-                return contentElement;
+                return messageElement;
             }
 
             // Get current time

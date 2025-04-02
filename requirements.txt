@@ -17,4 +17,4 @@ unstructured-inference>=0.7.0  # For image processing
 pdf2image>=1.16.0  # For PDF processing
 pillow>=10.0.0  # For image handling
 pytesseract>=0.3.10  # For OCR
-poppler-utils>=23.0.0  # For PDF processing
+# poppler-utils is installed via apt-get in the Dockerfile

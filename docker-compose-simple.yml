@@ -1,0 +1,25 @@
+version: '3'
+
+services:
+  # Application container for just repo processing and chat
+  modal-docs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5678:5678"  # Chat server port
+    volumes:
+      - ./data:/app/data
+      - ./app:/app/app
+      - ./src:/app/src
+      # Enable if you want to mount an external repository
+      # - /path/to/your/modalai/repo:/app/data/repos/modalai
+    environment:
+      - HOST=0.0.0.0
+      - PORT=5678
+      # These API keys are optional for demo mode
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-demo_key}
+      - VOYAGE_API_KEY=${VOYAGE_API_KEY:-demo_key}
+      - COHERE_API_KEY=${COHERE_API_KEY:-demo_key}
+    # Start the container but don't run any process
+    command: ["/app/docker-entrypoint.sh"]

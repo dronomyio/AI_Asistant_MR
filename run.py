@@ -99,6 +99,30 @@ def run_media_processor(args):
         output_dir=str(BASE_DIR / "data")
     )
     
+def run_repo_processor(args):
+    """Process git repositories for RAG."""
+    from src.processor.repo_processor import RepoProcessor
+    
+    # Check if repos directory exists
+    repos_dir = BASE_DIR / args.repos_dir
+    if not os.path.exists(repos_dir):
+        logger.error(f"Repositories directory not found at {repos_dir}")
+        logger.info("Please create the directory and clone the repositories first")
+        return False
+    
+    logger.info("Processing repositories...")
+    processor = RepoProcessor(
+        repos_dir=repos_dir,
+        output_dir=str(BASE_DIR / "data")
+    )
+    processor.process_all_repositories(max_files_per_repo=args.max_files)
+    processor.save_output(
+        chunks_file=args.chunks_file,
+        media_catalog_file=args.media_catalog
+    )
+    logger.info("Repository processing completed")
+    return True
+    
     processor.process_and_save(
         catalog_file=args.catalog,
         output_file=args.output
@@ -209,6 +233,13 @@ def main():
     # Chat command
     chat_parser = subparsers.add_parser("chat", help="Start chat server")
     
+    # Repository processing command
+    repo_parser = subparsers.add_parser("process-repos", help="Process git repositories for RAG")
+    repo_parser.add_argument("--repos-dir", default="data/repos", help="Directory containing repositories")
+    repo_parser.add_argument("--max-files", type=int, default=None, help="Maximum files to process per repository")
+    repo_parser.add_argument("--chunks-file", default="repo_chunks.json", help="Output file for document chunks")
+    repo_parser.add_argument("--media-catalog", default="repo_media.json", help="Output file for media catalog")
+    
     # Pipeline command
     pipeline_parser = subparsers.add_parser("pipeline", help="Run the full pipeline")
     pipeline_parser.add_argument("--max-pages", type=int, default=200, help="Maximum number of pages to scrape")
@@ -224,12 +255,12 @@ def main():
     
     args = parser.parse_args()
     
-    # Check environment
-    if not check_environment():
-        return 1
-    
     # Create directories
     create_directories()
+    
+    # Check environment (skip for process-repos and chat which can run without API keys)
+    if args.command not in ["process-repos", "chat"] and not check_environment():
+        return 1
     
     # Run the specified command
     if args.command == "scrape":
@@ -238,6 +269,8 @@ def main():
         run_processor(args)
     elif args.command == "process-media":
         run_media_processor(args)
+    elif args.command == "process-repos":
+        run_repo_processor(args)
     elif args.command == "embed":
         run_embeddings(args)
     elif args.command == "retrieve":

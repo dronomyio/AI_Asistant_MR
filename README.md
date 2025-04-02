@@ -1,274 +1,206 @@
 # Modal AI Documentation Retrieval System
 
-This project implements an advanced Retrieval Augmented Generation (RAG) system for the Modal AI documentation (https://docs.modalai.com) using contextual embeddings and hybrid search techniques.
+This project implements an advanced Retrieval Augmented Generation (RAG) system for Modal AI drone documentation using contextual embeddings, hybrid search techniques, and multimodal content.
 
 ## Features
 
-- **Web Scraping**: Automatically downloads and processes the Modal AI documentation
-  - **Multimedia Content**: Downloads images, videos, and document files (PDFs, STEP files, etc.)
-  - **Concurrent Processing**: Efficiently handles multiple downloads simultaneously
-- **Media Processing**: Extracts content from various media types using Unstructured.io
+- **Git Repository Processing**: Automatically processes Git repositories for Modal AI documentation and code
+  - **Markdown Processing**: Chunks markdown by section for meaningful context
+  - **Code Processing**: Intelligently chunks code by function/class with context
+  - **Multimedia Content**: Extracts and processes images, videos, and document files
+- **Media Processing**: Extracts content from various media types
   - **OCR for Images**: Extracts text from diagrams, charts, and photos
-  - **PDF Processing**: Extracts text, tables, and structure from PDF documents
-  - **Document Handling**: Processes various document formats (DOCX, PPTX, etc.)
+  - **Media References**: Tracks and links media files to their source documents
 - **Multimodal RAG**: Integrates multimedia content into the retrieval system
   - **Media-Aware Embeddings**: Includes processed media content in contextual embeddings
   - **Media References**: Includes relevant images and files in search results
   - **Visual Context**: RAG responses that reference relevant visual information
 - **Contextual Embeddings**: Uses Claude to generate context for each document chunk
-- **Weaviate Vector Storage**: Stores embeddings in a powerful vector database
-- **Hybrid Search**: Combines vector similarity and BM25 for better retrieval
-- **Reranking**: Further improves search relevance with Cohere's reranking API
-- **RAG Responses**: Generates helpful answers to user queries
 - **Chat Interface**: User-friendly web UI for interacting with the system
-- **Fully Dockerized**: Run everything with a single command
 
-## Project Structure
+## Quickstart - Docker
+
+The easiest way to get started is using Docker:
+
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/your-username/modalai-docs-project.git
+   cd modalai-docs-project
+   ```
+
+2. (Optional) Clone a Modal AI repository:
+   ```bash
+   # Use the helper script to clone a Modal AI repo
+   ./clone-repo.sh https://github.com/modalai/documentation.git
+   ```
+
+3. Start the Docker container:
+   ```bash
+   ./start-docker.sh
+   ```
+
+4. Access the chat interface at http://localhost:5678
+
+### What Happens in Docker?
+
+1. The Docker container starts and looks for repositories in the `data/repos` directory
+2. If no repositories are found, it creates a sample repository with drone documentation
+3. It processes all repositories, extracting content and media references
+4. The chat server starts, providing a web interface to interact with the documentation
+
+## Manual Setup (Without Docker)
+
+If you prefer not to use Docker:
+
+1. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   pip install flask flask-socketio python-dotenv
+   ```
+
+2. Prepare a repository:
+   ```bash
+   mkdir -p data/repos
+   # Clone a repository or create a sample repo
+   git clone https://github.com/modalai/documentation.git data/repos/modal-docs
+   ```
+
+3. Process the repository:
+   ```bash
+   python run.py process-repos
+   ```
+
+4. Create a symbolic link for media:
+   ```bash
+   mkdir -p app/static/media
+   ln -s $(pwd)/data/repos/modal-docs/voxl2/images app/static/media/voxl2
+   ```
+
+5. Start the chat interface:
+   ```bash
+   python run.py chat
+   ```
+
+6. Access the chat interface at http://localhost:5678
+
+## Adding Your Own Repositories
+
+You can add your own repositories to the system:
+
+1. Clone repositories into the `data/repos` directory:
+   ```bash
+   git clone <repo_url> data/repos/<repo_name>
+   ```
+
+2. Process the repositories:
+   ```bash
+   python run.py process-repos
+   ```
+
+3. Restart the chat server if it's already running.
+
+## API Keys (Optional)
+
+For full functionality with real embeddings and LLM responses, you'll need:
+
+1. **ANTHROPIC_API_KEY**: For Claude contextual descriptions and responses
+   - Sign up at https://www.anthropic.com/
+
+2. **VOYAGE_AI_KEY**: For high-quality embeddings
+   - Sign up at https://www.voyageai.com/
+
+3. **COHERE_API_KEY**: For reranking search results
+   - Sign up at https://cohere.com/
+
+Set these as environment variables:
+```bash
+export ANTHROPIC_API_KEY="your_key"
+export VOYAGE_API_KEY="your_key" 
+export COHERE_API_KEY="your_key"
+```
+
+Or add them to a `.env` file:
+```
+ANTHROPIC_API_KEY=your_key
+VOYAGE_API_KEY=your_key
+COHERE_API_KEY=your_key
+```
+
+## Repository Processor Features
+
+The repository processor includes several advanced features:
+
+1. **Intelligent Chunking**:
+   - Markdown files are chunked by section based on headings
+   - Code files are chunked by function/class with surrounding context
+   - Other files use standard chunking with overlap
+
+2. **Media Extraction**:
+   - Identifies and processes images referenced in markdown
+   - Maintains links between documents and their media references
+
+3. **Contextual Enrichment**:
+   - Adds document titles and file paths for better context
+   - Preserves code structure and comments
+
+## Files and Directories
 
 ```
 modalai_docs_project/
 ├── app/                      # Chat web interface
 │   ├── static/               # Static assets
+│   │   ├── images/           # Sample images
+│   │   └── media/            # Symbolic links to repository media
 │   ├── templates/            # HTML templates
-│   ├── chat_server.py        # Flask + Socket.IO server
-│   └── __init__.py
+│   └── chat_server.py        # Flask + Socket.IO server
 ├── src/                      # Core modules
-│   ├── db/                   # Database clients
-│   │   ├── elasticsearch_client.py
-│   │   ├── weaviate_client.py
-│   │   └── __init__.py
-│   ├── scraper/              # Web scraping
-│   │   ├── modal_ai_scraper.py  # Enhanced with multimedia support
-│   │   └── __init__.py
-│   ├── processor/            # Document processing
+│   ├── processor/            # Document and media processing
 │   │   ├── document_processor.py
-│   │   ├── media_processor.py    # Media processing with Unstructured.io
-│   │   └── __init__.py
+│   │   ├── media_processor.py
+│   │   └── repo_processor.py # Git repository processor
 │   ├── embeddings/           # Contextual embeddings
 │   │   ├── contextual_embeddings.py
-│   │   ├── multimodal_embeddings.py  # Embeddings with media content
-│   │   └── __init__.py
-│   ├── retrieval/            # Advanced retrieval
-│   │   ├── advanced_retrieval.py
-│   │   └── __init__.py
-│   ├── utils/                # Utility functions
-│   │   └── __init__.py
-│   └── __init__.py
-├── data/                     # Data storage directory
-│   ├── media/                # Downloaded media files
-│   │   └── <page_subdirs>/   # Media organized by page
-│   ├── modalai_docs.json     # Raw document data
-│   ├── modalai_media.json    # Media catalog
-│   ├── modalai_processed_media.json # Processed media data from Unstructured.io
-│   └── modalai_chunks.json   # Processed document chunks
-├── docker-compose.yml        # Docker services configuration
-├── Dockerfile                # Container build configuration
-├── run.py                    # CLI entry point
-├── setup.py                  # Package definition
-└── requirements.txt          # Dependencies
+│   │   └── multimodal_embeddings.py
+│   └── retrieval/            # Search and retrieval
+│       └── advanced_retrieval.py
+├── data/                     # Data storage
+│   ├── repos/                # Git repositories
+│   │   └── modal-docs/       # Modal AI documentation
+│   ├── repo_chunks.json      # Processed repository chunks
+│   └── repo_media.json       # Media catalog
+├── docker-compose-simple.yml # Simplified Docker setup
+├── docker-entrypoint.sh      # Docker startup script
+├── Dockerfile                # Container configuration
+├── run.py                    # Command-line interface
+├── clone-repo.sh             # Helper for cloning repositories
+└── start-docker.sh           # Docker startup script
 ```
-
-## Docker Setup
-
-The entire system is containerized for easy deployment:
-
-1. Set up environment variables:
-   ```
-   export ANTHROPIC_API_KEY="your_anthropic_key"
-   export VOYAGE_API_KEY="your_voyage_key"
-   export COHERE_API_KEY="your_cohere_key"
-   ```
-
-2. Run the Docker setup:
-   ```
-   docker-compose up -d
-   ```
-
-3. Execute the full pipeline:
-   ```
-   docker-compose exec app python run.py pipeline
-   ```
-
-4. Or run specific parts:
-   ```
-   # Scrape the documentation (text only)
-   docker-compose exec app python run.py scrape
-   
-   # Scrape the documentation with multimedia content
-   docker-compose exec app python run.py scrape --download-media
-   
-   # Customize media downloading
-   docker-compose exec app python run.py scrape --download-media --max-workers 10
-   
-   # Process documents into chunks
-   docker-compose exec app python run.py process
-   
-   # Process downloaded media files with Unstructured.io
-   docker-compose exec app python run.py process-media
-   
-   # Generate contextual embeddings (text-only)
-   docker-compose exec app python run.py embed
-   
-   # Generate multimodal embeddings (with media content)
-   docker-compose exec app python run.py embed --multimodal
-   
-   # Search with text-only retrieval
-   docker-compose exec app python run.py retrieve --query "drone configuration"
-   
-   # Search with multimodal retrieval (includes media references)
-   docker-compose exec app python run.py retrieve --multimodal --query "drone components"
-   
-   # Start the chat server
-   docker-compose exec app python run.py chat
-   
-   # Run complete pipeline with full multimedia support
-   docker-compose exec app python run.py pipeline --download-media --process-media --multimodal-embeddings
-   ```
-
-5. Access the chat interface at http://localhost:5005
-
-## API Keys
-
-This project requires three API keys:
-
-1. **ANTHROPIC_API_KEY**: Used for Claude to generate contextual descriptions and RAG responses
-   - Sign up at https://www.anthropic.com/
-   
-2. **VOYAGE_AI_KEY**: Used for high-quality embeddings
-   - Sign up at https://www.voyageai.com/
-   - You could modify the code to use other embedding providers if preferred
-
-3. **COHERE_API_KEY**: Used for reranking search results
-   - Sign up at https://cohere.com/
-   
-All three keys need to be set as environment variables before running the Docker containers.
 
 ## Troubleshooting
 
-If you encounter port conflicts when starting the containers:
+If you encounter issues:
 
-1. Check if any port is already in use:
-   ```
-   netstat -aln | grep -E ':(5005|8081|9200)'
-   ```
+1. **Chat server won't start**: Check if port 5678 is already in use
 
-2. Stop other Docker containers that might be using the ports:
-   ```
-   docker container ls
-   docker stop [container-id]
-   ```
+2. **Repository processing fails**: Ensure the repository is properly cloned and contains documentation
 
-3. Modify the port mappings in `docker-compose.yml` if needed.
+3. **Media not displaying**: Check if the symbolic links are properly set up in `app/static/media`
 
-## Local Development
+4. **Docker issues**: Make sure Docker and docker-compose are installed and running
 
-For local development without Docker:
+## Development and Extensions
 
-1. Set up environment variables:
-   ```
-   export ANTHROPIC_API_KEY="your_anthropic_key"
-   export VOYAGE_API_KEY="your_voyage_key"
-   export COHERE_API_KEY="your_cohere_key"
-   ```
+This project can be extended in several ways:
 
-2. Install dependencies:
-   ```
-   pip install -e .
-   ```
+1. **Enhanced Media Processing**: Add support for more media types or improve extraction
 
-3. Start Weaviate and Elasticsearch:
-   ```
-   docker-compose up -d weaviate elasticsearch
-   ```
+2. **Better Embedding Generation**: Implement true multimodal embeddings with CLIP or similar models
 
-4. Run the CLI:
-   ```
-   python run.py --help
-   ```
+3. **Improved Search**: Add faceted search or filtering by document type
 
-## Component Architecture
-
-- **Scraping Layer**: Retrieves documentation from the Modal AI website
-  - Text extraction for document content
-  - Image and video download capability
-  - Document file (PDF, STEP, etc.) collection
-  - Media metadata extraction
-  - Concurrent processing with thread pooling
-- **Processing Layer**: 
-  - Chunks documents and generates contextual embeddings
-  - Media cataloging and organization
-  - Integrates media references with document chunks
-  - Unstructured.io integration for media content extraction:
-    - OCR for images to extract text
-    - PDF processing for text, tables, and structure
-    - Various document format handling
-- **Embedding Layer**:
-  - Text-only contextual embeddings
-  - Multimodal embeddings incorporating processed media content
-  - Media-aware context generation using Claude
-- **Storage Layer**: 
-  - Weaviate: Stores vector embeddings with JSON-serialized media references
-  - Elasticsearch: Provides BM25 text search capabilities
-  - File System: Organizes media files by source page in structured hierarchy
-- **Retrieval Layer**: 
-  - Hybrid search combining results from Weaviate and Elasticsearch
-  - Reranking for improved result ordering
-  - Media-aware search results with file references
-  - Multimodal retrieval options
-- **Generation Layer**: 
-  - Creates RAG responses using Claude
-  - Includes references to relevant media in answers
-  - Lists related media files with descriptions
-- **Interface Layer**: Web UI using Flask and Socket.IO for real-time communication
-
-## Technical Implementation
-
-### Media Storage & Retrieval
-
-The system uses a sophisticated approach to handle multimedia content:
-
-1. **File Organization**: Media files are downloaded to a structured directory hierarchy based on their source pages
-2. **Metadata Tracking**: Each media file is tracked with metadata including content type, descriptions, and source information
-3. **Weaviate Integration**:
-   - Media references are serialized to JSON strings and stored in Weaviate's `mediaReferences` property
-   - During retrieval, JSON strings are parsed back into structured objects
-   - Media references are included in search results to enhance RAG responses
-4. **Context Building**: Processed media content from Unstructured.io is included in context generation for Claude
-
-This design ensures that relevant media content is seamlessly incorporated into the retrieval and generation process.
-
-## Chat Interface
-
-The chat interface provides:
-
-- Real-time interaction with the Modal AI documentation
-- Source citations for every answer
-- Status indicators for system state
-- Mobile-friendly responsive design
-- References to relevant media files when available
+4. **User Interface Enhancements**: Add media viewers or expand the chat capabilities
 
 ## References
 
-- Based on techniques described in Anthropic's [Contextual Retrieval blog post](https://www.anthropic.com/news/contextual-retrieval)
-- Implementation follows patterns from Anthropic's cookbook: https://github.com/anthropics/anthropic-cookbook
-
-## Components Used
-
-- **Claude 3**: For contextual enrichment and answer generation
-- **Voyage AI**: For high-quality embeddings
-- **Weaviate**: Vector database for semantic search
-- **Elasticsearch**: For BM25 text search
-- **Cohere**: For reranking search results
-- **Unstructured.io**: For processing multimedia content (images, PDFs)
-- **Tesseract OCR**: For text extraction from images
-- **Flask & Socket.IO**: For the chat web interface
-
-## Future Enhancements
-
-- **Image Visualization**: Display referenced images directly in the chat interface
-- **Document Viewers**: Embed PDF and document viewers in the interface
-- **Image Captioning**: Generate descriptive captions for images using LLMs
-- **Enhanced Media Understanding**: Improved multi-page document and complex image analysis
-- **Multimodal RAG Evaluation**: Metrics and evaluation framework for multimodal RAG performance
-- **Vector Database Optimization**: Explore advanced vector storage options like Weaviate's multi2vec for true multimodal vectors
-- **Interactive Media References**: Enable clicking on media references to view the full-size media files
+- Based on Anthropic's [contextual embeddings and RAG techniques](https://www.anthropic.com/news/contextual-retrieval)
+- Implementation inspired by [Anthropic's cookbook examples](https://github.com/anthropics/anthropic-cookbook)

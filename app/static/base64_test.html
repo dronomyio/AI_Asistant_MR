@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Base64 Image Test</title>
+</head>
+<body>
+    <h1>Hardware Image Test using Base64 Encoding</h1>
+    <p>This is a test using embedded Base64 image data (no external file loading):</p>
+    
+    <!-- Demo image - small rectangle with text -->
+    <div style="margin: 20px; padding: 20px; border: 1px solid #ccc;">
+        <h3>Demo Image (generated)</h3>
+        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAACWCAYAAABkW7XSAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAABLKADAAQAAAABAAAAlgAAAACfayoMAAAJXUlEQVR4Ae3aQWpcZxiF4XMbcn0jUkgXIFAlMZSULMFDz7OAbKM7cKgGLpgkbdTUbVTn82C+93CwT2oM/PyKAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIPAkgfVC3l+urxfytGMI/F+Bj9fzX6/nYq9nXO1vVvuLfQ9+vN1ev93Ofhvh/wj8/Pto/X4/+22EfyTw6W6+fLpT+0cUvBP4S+Dbeb7+dp6JhQABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECDwBIHPNzs/38zjCASewvc38+fFHn+62eVir+fT7c7324M9BYYEfj3Mfj3MYicw5f/97d5vZ9+/2+s5D5c6/3A3C4EhgS/3s1/uZ+HwNCnkHQECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIPAEgfXCPn68ni/kdUfg/wocwf/yMF/O4d++3c9+vR/PJkDgD4Gf7nZ+uptvd/Plbi73cgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIEPh3BNbbvZzH+XazN7f7cT8LgSmBc+TfXO/nq1nsR+yjN7P/D/PQv9vbh/l4N49zsQQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECDwRIHj+wf317uvT/y2rwhMCPz+MN8f5rETmPL/dm/fXe/7d3uxxzk++3l/c7hH+A8F/vj52z99+o6fKPArAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIEXkjgL+W1N4X+fGNsAAAAAElFTkSuQmCC" 
+            alt="Demo rectangle" style="border: 1px solid #333;">
+    </div>
+    
+    <!-- Test with hardware SVG icon as fallback -->
+    <div style="margin: 20px; padding: 20px; border: 1px solid #ccc;">
+        <h3>Hardware Diagram Visualization</h3>
+        <svg width="400" height="300" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+            <!-- Main board outline -->
+            <rect x="100" y="50" width="200" height="150" fill="#e0e0e0" stroke="#000" stroke-width="2"/>
+            
+            <!-- Connectors -->
+            <rect x="120" y="70" width="30" height="15" fill="#555" stroke="#000"/>
+            <text x="135" y="95" font-family="Arial" font-size="12" text-anchor="middle">J1</text>
+            
+            <rect x="170" y="70" width="30" height="15" fill="#555" stroke="#000"/>
+            <text x="185" y="95" font-family="Arial" font-size="12" text-anchor="middle">J2</text>
+            
+            <rect x="220" y="70" width="30" height="15" fill="#555" stroke="#000"/>
+            <text x="235" y="95" font-family="Arial" font-size="12" text-anchor="middle">J3</text>
+            
+            <!-- Pin headers -->
+            <rect x="120" y="120" width="40" height="10" fill="#ffcc00" stroke="#000"/>
+            <text x="140" y="145" font-family="Arial" font-size="12" text-anchor="middle">GPIO</text>
+            
+            <rect x="180" y="120" width="40" height="10" fill="#ffcc00" stroke="#000"/>
+            <text x="200" y="145" font-family="Arial" font-size="12" text-anchor="middle">UART</text>
+            
+            <rect x="240" y="120" width="40" height="10" fill="#ffcc00" stroke="#000"/>
+            <text x="260" y="145" font-family="Arial" font-size="12" text-anchor="middle">I2C</text>
+            
+            <!-- Main processor -->
+            <rect x="150" y="160" width="100" height="30" fill="#aad" stroke="#000" stroke-width="2"/>
+            <text x="200" y="178" font-family="Arial" font-size="10" text-anchor="middle">QRB5165 Processor</text>
+            
+            <!-- Title -->
+            <text x="200" y="30" font-family="Arial" font-size="16" font-weight="bold" text-anchor="middle">VOXL 2 Hardware Diagram</text>
+            
+            <!-- Power indicators -->
+            <circle cx="310" cy="70" r="5" fill="#f00" stroke="#000"/>
+            <text x="310" y="85" font-family="Arial" font-size="10" text-anchor="middle">PWR</text>
+            
+            <circle cx="310" cy="100" r="5" fill="#0f0" stroke="#000"/>
+            <text x="310" y="115" font-family="Arial" font-size="10" text-anchor="middle">STAT</text>
+        </svg>
+        <p>SVG illustration of VOXL 2 hardware connections</p>
+    </div>
+</body>
+</html>

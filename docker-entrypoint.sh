@@ -122,8 +122,16 @@ echo "Environment:"
 echo "- WEAVIATE_URL: $WEAVIATE_URL"
 echo "- ELASTICSEARCH_URL: $ELASTICSEARCH_URL"
 echo "- WEAVIATE_COLLECTION: $WEAVIATE_COLLECTION"
+echo "- OPENAI_EMBEDDING_MODEL: $OPENAI_EMBEDDING_MODEL"
 echo "- HOST: $HOST"
 echo "- PORT: $PORT"
+
+# Display API key status (without showing the actual keys)
+echo "API Keys:"
+[ -n "$ANTHROPIC_API_KEY" ] && echo "- ANTHROPIC_API_KEY: ✅" || echo "- ANTHROPIC_API_KEY: ❌"
+[ -n "$VOYAGE_API_KEY" ] && echo "- VOYAGE_API_KEY: ✅" || echo "- VOYAGE_API_KEY: ❌"
+[ -n "$COHERE_API_KEY" ] && echo "- COHERE_API_KEY: ✅" || echo "- COHERE_API_KEY: ❌"
+[ -n "$OPENAI_API_KEY" ] && echo "- OPENAI_API_KEY: ✅" || echo "- OPENAI_API_KEY: ❌"
 
 # Execute the command passed to docker run
 echo "Starting application with command: $@"

@@ -31,7 +31,10 @@ class AdvancedRetrieval:
         cohere_api_key=None,
         anthropic_api_key=None,
         voyage_api_key=None,
-        use_weaviate_cloud=False
+        openai_api_key=None,
+        use_weaviate_cloud=False,
+        openai_model="text-embedding-ada-002",
+        create_collection=False
     ):
         """
         Initialize the advanced retrieval system.
@@ -44,7 +47,10 @@ class AdvancedRetrieval:
             cohere_api_key: API key for Cohere (will fall back to env var)
             anthropic_api_key: API key for Anthropic (will fall back to env var)
             voyage_api_key: API key for Voyage AI (will fall back to env var)
+            openai_api_key: API key for OpenAI (will fall back to env var)
             use_weaviate_cloud: Whether to use Weaviate Cloud (env vars must be set)
+            openai_model: OpenAI embedding model to use
+            create_collection: Whether to create collection if it doesn't exist
         """
         # Legacy services support
         self.embeddings_service = embeddings_service
@@ -54,15 +60,20 @@ class AdvancedRetrieval:
         self.cohere_api_key = cohere_api_key or os.environ.get("COHERE_API_KEY")
         self.anthropic_api_key = anthropic_api_key or os.environ.get("ANTHROPIC_API_KEY")
         self.voyage_api_key = voyage_api_key or os.environ.get("VOYAGE_API_KEY")
+        self.openai_api_key = openai_api_key or os.environ.get("OPENAI_API_KEY")
+        self.openai_model = openai_model
         
-        # Initialize clients
+        # Initialize Weaviate client
         if weaviate_client:
             self.weaviate_client = weaviate_client
         else:
             self.weaviate_client = WeaviateClient(
                 collection_name=collection_name,
                 cohere_api_key=self.cohere_api_key,
-                use_cloud=use_weaviate_cloud
+                openai_api_key=self.openai_api_key,
+                use_cloud=use_weaviate_cloud,
+                create_collection=create_collection,
+                embedding_model=openai_model
             )
         
         # Initialize Cohere client if API key provided
@@ -84,7 +95,16 @@ class AdvancedRetrieval:
             self.voyage_client = voyageai.Client(api_key=self.voyage_api_key)
         else:
             self.voyage_client = None
-            logger.warning("Voyage API key not provided. Vector embeddings will not be available.")
+            logger.warning("Voyage API key not provided. Voyage embeddings will not be available.")
+            
+        # Initialize OpenAI client if API key provided
+        if self.openai_api_key:
+            # Import here to avoid unnecessary dependency
+            import openai
+            self.openai_client = openai.OpenAI(api_key=self.openai_api_key)
+        else:
+            self.openai_client = None
+            logger.warning("OpenAI API key not provided. OpenAI embeddings will not be available.")
         
     def hybrid_search(self, query, k=5, semantic_weight=0.7, bm25_weight=0.3):
         """
@@ -248,26 +268,45 @@ class AdvancedRetrieval:
     
     def embed_query(self, query_text):
         """
-        Generate an embedding for the query using Voyage AI.
+        Generate an embedding for the query using available embedding services.
+        Tries OpenAI first, then Voyage AI, then falls back to legacy service.
         
         Args:
             query_text: The query to embed
             
         Returns:
-            The query embedding vector or None if Voyage AI client not available
+            The query embedding vector or None if no embedding service is available
         """
-        if not hasattr(self, 'voyage_client') or not self.voyage_client:
-            # Try to get embedding from legacy embeddings service
-            if self.embeddings_service and hasattr(self.embeddings_service, 'embed_query'):
+        # Try using OpenAI for embedding (to match existing DB vectors)
+        if hasattr(self, 'openai_client') and self.openai_client:
+            try:
+                import openai
+                response = self.openai_client.embeddings.create(
+                    model=getattr(self, 'openai_model', "text-embedding-ada-002"),
+                    input=query_text
+                )
+                return response.data[0].embedding
+            except Exception as e:
+                logger.error(f"Error generating OpenAI embedding: {e}")
+                
+        # Fall back to Voyage AI if available
+        if hasattr(self, 'voyage_client') and self.voyage_client:
+            try:
+                response = self.voyage_client.embed([query_text], model="voyage-2")
+                return response.embeddings[0]
+            except Exception as e:
+                logger.error(f"Error generating Voyage embedding: {e}")
+        
+        # Try legacy embeddings service as last resort
+        if self.embeddings_service and hasattr(self.embeddings_service, 'embed_query'):
+            try:
                 return self.embeddings_service.embed_query(query_text)
-            return None
-            
-        try:
-            response = self.voyage_client.embed([query_text], model="voyage-2")
-            return response.embeddings[0]
-        except Exception as e:
-            logger.error(f"Error generating query embedding: {e}")
-            return None
+            except Exception as e:
+                logger.error(f"Error using legacy embedding service: {e}")
+                
+        # If all methods fail, return None
+        logger.warning("No embedding service available to generate query embedding")
+        return None
     
     def weaviate_search(self, query, query_embedding=None, k=20, hybrid=True, alpha=0.5):
         """

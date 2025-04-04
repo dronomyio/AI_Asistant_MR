@@ -15,7 +15,10 @@ class WeaviateClient:
         url=None, 
         weaviate_api_key=None,
         cohere_api_key=None,
-        use_cloud=False
+        openai_api_key=None,
+        use_cloud=False,
+        create_collection=False,
+        embedding_model="text-embedding-ada-002"
     ):
         """
         Initialize a connection to Weaviate vector database (v4).
@@ -25,16 +28,28 @@ class WeaviateClient:
             url: URL of the Weaviate instance (for local or custom deployments)
             weaviate_api_key: Optional API key for authentication
             cohere_api_key: Optional Cohere API key for hybrid search
+            openai_api_key: Optional OpenAI API key for embeddings
             use_cloud: If True, will connect to Weaviate Cloud using environment variables
+            create_collection: If True, will create the collection if it doesn't exist
+            embedding_model: OpenAI embedding model to use (only needed when creating collection)
         """
+        # Get API keys from environment if not provided
+        weaviate_api_key = weaviate_api_key or os.environ.get("WEAVIATE_API_KEY")
+        cohere_api_key = cohere_api_key or os.environ.get("COHERE_API_KEY")
+        openai_api_key = openai_api_key or os.environ.get("OPENAI_API_KEY")
+        self.embedding_model = embedding_model
+        
+        # Override collection name from environment if set
+        if os.environ.get("WEAVIATE_COLLECTION"):
+            collection_name = os.environ.get("WEAVIATE_COLLECTION")
+            print(f"Using collection name from environment: {collection_name}")
+            
         # Connect to Weaviate (either cloud or local instance)
         for _ in range(5):
             try:
                 if use_cloud:
                     # Connect to Weaviate Cloud using environment variables
                     weaviate_url = os.environ.get("WEAVIATE_URL")
-                    weaviate_api_key = os.environ.get("WEAVIATE_API_KEY")
-                    cohere_api_key = os.environ.get("COHERE_API_KEY", cohere_api_key)
                     
                     if not weaviate_url or not weaviate_api_key:
                         raise ValueError("WEAVIATE_URL and WEAVIATE_API_KEY must be set as environment variables when use_cloud=True")
@@ -43,6 +58,8 @@ class WeaviateClient:
                     headers = {}
                     if cohere_api_key:
                         headers["X-Cohere-Api-Key"] = cohere_api_key
+                    if openai_api_key:
+                        headers["X-OpenAI-Api-Key"] = openai_api_key
                     
                     self.client = weaviate.connect_to_weaviate_cloud(
                         cluster_url=weaviate_url,
@@ -57,16 +74,19 @@ class WeaviateClient:
                     if url:
                         connection_params["url"] = url
                     else:
-                        connection_params["url"] = "http://localhost:8080"
+                        url_from_env = os.environ.get("WEAVIATE_URL", "http://localhost:8080")
+                        connection_params["url"] = url_from_env
                     
                     # Add authentication if provided
                     if weaviate_api_key:
                         connection_params["auth_credentials"] = Auth.api_key(weaviate_api_key)
                     
-                    # Add Cohere API key if provided
+                    # Add API keys for vectorizers if provided
                     headers = {}
                     if cohere_api_key:
                         headers["X-Cohere-Api-Key"] = cohere_api_key
+                    if openai_api_key:
+                        headers["X-OpenAI-Api-Key"] = openai_api_key
                     if headers:
                         connection_params["headers"] = headers
                     
@@ -82,8 +102,20 @@ class WeaviateClient:
                 time.sleep(5)
         
         self.collection_name = collection_name
-        self.cohere_api_key = cohere_api_key or os.environ.get("COHERE_API_KEY")
-        self._ensure_collection()
+        self.cohere_api_key = cohere_api_key
+        self.openai_api_key = openai_api_key
+        
+        # Check if we should create the collection
+        if create_collection:
+            self._ensure_collection()
+        else:
+            # Just try to get the collection without creating it
+            try:
+                self.collection = self.client.collections.get(self.collection_name)
+                print(f"Using existing collection: {self.collection_name}")
+            except Exception as e:
+                print(f"Warning: Could not get collection {self.collection_name}: {e}")
+                print("The collection may not exist or you may not have access to it.")
         
     def _ensure_collection(self):
         """Create the Weaviate collection if it doesn't exist."""
@@ -101,10 +133,23 @@ class WeaviateClient:
         
         # Create new collection with properties
         try:
+            # Determine vectorizer config based on available API keys
+            if self.openai_api_key:
+                print(f"Using OpenAI vectorizer with model: {self.embedding_model}")
+                vectorizer_config = weaviate.classes.config.Configure.Vectorizer.openai(
+                    model=self.embedding_model
+                )
+            elif self.cohere_api_key:
+                print("Using Cohere vectorizer")
+                vectorizer_config = weaviate.classes.config.Configure.Vectorizer.cohere()
+            else:
+                print("Using 'none' vectorizer (bring your own embeddings)")
+                vectorizer_config = weaviate.classes.config.Configure.Vectorizer.none()
+            
             self.collection = self.client.collections.create(
                 name=self.collection_name,
                 description="Modal AI documentation chunks with contextual information",
-                vectorizer_config=weaviate.classes.config.Configure.Vectorizer.none(),
+                vectorizer_config=vectorizer_config,
                 properties=[
                     weaviate.classes.config.Property(
                         name="content",

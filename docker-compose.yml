@@ -1,7 +1,7 @@
 services:
   # Weaviate vector database
   weaviate:
-    image: semitechnologies/weaviate:1.19.6
+    image: semitechnologies/weaviate:1.22.4
     ports:
       - "8081:8080"  # Changed from 8080:8080 to avoid port conflict
     environment:
@@ -9,7 +9,8 @@ services:
       AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
       PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
       DEFAULT_VECTORIZER_MODULE: 'none'
-      ENABLE_MODULES: ''
+      ENABLE_MODULES: 'text2vec-cohere'
+      COHERE_APIKEY: ${COHERE_API_KEY}
       CLUSTER_HOSTNAME: 'node1'
     volumes:
       - weaviate_data:/var/lib/weaviate
@@ -51,11 +52,12 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "5005:5000"  # Changed to 5005:5000 to avoid port conflicts
+      - "5678:5000"  # Changed to 5678:5000 to avoid port conflicts
     volumes:
       - ./data:/app/data
       - ./app:/app/app
       - ./src:/app/src
+      - ./static:/app/static
     depends_on:
       - weaviate
       - elasticsearch
@@ -67,8 +69,10 @@ services:
       - ELASTICSEARCH_URL=http://elasticsearch:9200
       - HOST=0.0.0.0
       - PORT=5000
+      - WEAVIATE_COLLECTION=ModalAIDocument
     networks:
       - app-network
+    entrypoint: ["/app/docker-entrypoint.sh"]
     command: python -m app.chat_server
 
 networks:

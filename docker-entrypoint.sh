@@ -117,7 +117,15 @@ python run.py process-repos --repos-dir=data/repos --chunks-file=repo_chunks.jso
 mkdir -p /app/app/static/media
 ln -sfn /app/data/repos/modal-docs/voxl2/images /app/app/static/media/voxl2 || echo "Warning: Could not create symbolic link"
 
-# Start chat server
-echo "Starting chat server..."
+# Display environment info
+echo "Environment:"
+echo "- WEAVIATE_URL: $WEAVIATE_URL"
+echo "- ELASTICSEARCH_URL: $ELASTICSEARCH_URL"
+echo "- WEAVIATE_COLLECTION: $WEAVIATE_COLLECTION"
+echo "- HOST: $HOST"
+echo "- PORT: $PORT"
+
+# Execute the command passed to docker run
+echo "Starting application with command: $@"
 cd /app
-exec python run.py chat
+exec "$@"

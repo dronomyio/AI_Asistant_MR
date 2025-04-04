@@ -2,29 +2,76 @@ import os
 import time
 import json
 import weaviate
+from weaviate.classes.init import Auth
+from weaviate.classes.query import HybridFusion
 import numpy as np
 from tqdm import tqdm
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 class WeaviateClient:
-    def __init__(self, class_name="ModalAIDocument", url="http://localhost:8080", api_key=None):
+    def __init__(
+        self, 
+        collection_name="ModalAIDocument", 
+        url=None, 
+        weaviate_api_key=None,
+        cohere_api_key=None,
+        use_cloud=False
+    ):
         """
-        Initialize a connection to Weaviate vector database.
+        Initialize a connection to Weaviate vector database (v4).
         
         Args:
-            class_name: Name of the Weaviate class to store documents
-            url: URL of the Weaviate instance
-            api_key: Optional API key for authentication
+            collection_name: Name of the Weaviate collection to store documents
+            url: URL of the Weaviate instance (for local or custom deployments)
+            weaviate_api_key: Optional API key for authentication
+            cohere_api_key: Optional Cohere API key for hybrid search
+            use_cloud: If True, will connect to Weaviate Cloud using environment variables
         """
-        # Retry connection to handle startup delays
+        # Connect to Weaviate (either cloud or local instance)
         for _ in range(5):
             try:
-                # Simple client initialization (works with both v3 and v4)
-                if api_key:
-                    auth_config = weaviate.auth.AuthApiKey(api_key)
-                    self.client = weaviate.Client(url, auth_client_secret=auth_config)
+                if use_cloud:
+                    # Connect to Weaviate Cloud using environment variables
+                    weaviate_url = os.environ.get("WEAVIATE_URL")
+                    weaviate_api_key = os.environ.get("WEAVIATE_API_KEY")
+                    cohere_api_key = os.environ.get("COHERE_API_KEY", cohere_api_key)
+                    
+                    if not weaviate_url or not weaviate_api_key:
+                        raise ValueError("WEAVIATE_URL and WEAVIATE_API_KEY must be set as environment variables when use_cloud=True")
+                    
+                    # Connect to Weaviate Cloud with API key
+                    headers = {}
+                    if cohere_api_key:
+                        headers["X-Cohere-Api-Key"] = cohere_api_key
+                    
+                    self.client = weaviate.connect_to_weaviate_cloud(
+                        cluster_url=weaviate_url,
+                        auth_credentials=Auth.api_key(weaviate_api_key),
+                        headers=headers
+                    )
                 else:
-                    self.client = weaviate.Client(url)
+                    # Connect to local or custom Weaviate instance
+                    connection_params = {}
+                    
+                    # Add URL if provided, otherwise default to localhost
+                    if url:
+                        connection_params["url"] = url
+                    else:
+                        connection_params["url"] = "http://localhost:8080"
+                    
+                    # Add authentication if provided
+                    if weaviate_api_key:
+                        connection_params["auth_credentials"] = Auth.api_key(weaviate_api_key)
+                    
+                    # Add Cohere API key if provided
+                    headers = {}
+                    if cohere_api_key:
+                        headers["X-Cohere-Api-Key"] = cohere_api_key
+                    if headers:
+                        connection_params["headers"] = headers
+                    
+                    # Connect to Weaviate
+                    self.client = weaviate.connect_to_local(**connection_params)
                 
                 # Check connection
                 if self.client.is_ready():
@@ -34,79 +81,85 @@ class WeaviateClient:
                 print(f"Waiting for Weaviate to be ready: {e}")
                 time.sleep(5)
         
-        self.class_name = class_name
-        self._create_schema()
+        self.collection_name = collection_name
+        self.cohere_api_key = cohere_api_key or os.environ.get("COHERE_API_KEY")
+        self._ensure_collection()
         
-    def _create_schema(self):
-        """Create the Weaviate schema for the collection if it doesn't exist."""
-        # Check if class already exists
+    def _ensure_collection(self):
+        """Create the Weaviate collection if it doesn't exist."""
         try:
-            schema = self.client.schema.get()
-            classes = [cls['class'] for cls in schema['classes']] if 'classes' in schema else []
+            # Check if collection exists
+            collections = self.client.collections.list_all()
+            collection_names = [c.name for c in collections]
             
-            if self.class_name in classes:
-                print(f"Class {self.class_name} already exists")
+            if self.collection_name in collection_names:
+                print(f"Collection {self.collection_name} already exists")
+                self.collection = self.client.collections.get(self.collection_name)
                 return
         except Exception as e:
-            print(f"Error checking schema: {e}")
+            print(f"Error checking collections: {e}")
         
-        # Define class properties in v3 format for wider compatibility
-        properties = [
-            {
-                "name": "content",
-                "dataType": ["text"],
-                "description": "The original chunk content"
-            },
-            {
-                "name": "contextualContent",
-                "dataType": ["text"],
-                "description": "The contextual information for the chunk"
-            },
-            {
-                "name": "title",
-                "dataType": ["text"],
-                "description": "Document title"
-            },
-            {
-                "name": "url",
-                "dataType": ["text"],
-                "description": "Document URL"
-            },
-            {
-                "name": "docId",
-                "dataType": ["string"],
-                "description": "Document ID"
-            },
-            {
-                "name": "chunkId",
-                "dataType": ["string"],
-                "description": "Chunk ID"
-            },
-            {
-                "name": "originalIndex",
-                "dataType": ["number"],
-                "description": "Original index of the chunk in the document"
-            },
-            {
-                "name": "mediaReferences",
-                "dataType": ["text[]"],
-                "description": "References to media items related to this content"
-            }
-        ]
-        
-        # Create class using v3 API for wider compatibility
-        class_obj = {
-            "class": self.class_name,
-            "description": "Modal AI documentation chunks with contextual information",
-            "vectorizer": "none",  # We'll provide our own vectors
-            "properties": properties
-        }
-        
+        # Create new collection with properties
         try:
-            self.client.schema.create_class(class_obj)
-            print(f"Created Weaviate class: {self.class_name}")
+            self.collection = self.client.collections.create(
+                name=self.collection_name,
+                description="Modal AI documentation chunks with contextual information",
+                vectorizer_config=weaviate.classes.config.Configure.Vectorizer.none(),
+                properties=[
+                    weaviate.classes.config.Property(
+                        name="content",
+                        data_type=weaviate.classes.config.DataType.TEXT,
+                        description="The original chunk content",
+                        skip_vectorization=False
+                    ),
+                    weaviate.classes.config.Property(
+                        name="contextualContent",
+                        data_type=weaviate.classes.config.DataType.TEXT,
+                        description="The contextual information for the chunk",
+                        skip_vectorization=False
+                    ),
+                    weaviate.classes.config.Property(
+                        name="title",
+                        data_type=weaviate.classes.config.DataType.TEXT,
+                        description="Document title",
+                        skip_vectorization=False
+                    ),
+                    weaviate.classes.config.Property(
+                        name="url",
+                        data_type=weaviate.classes.config.DataType.TEXT,
+                        description="Document URL",
+                        skip_vectorization=True
+                    ),
+                    weaviate.classes.config.Property(
+                        name="docId",
+                        data_type=weaviate.classes.config.DataType.TEXT,
+                        description="Document ID",
+                        skip_vectorization=True
+                    ),
+                    weaviate.classes.config.Property(
+                        name="chunkId",
+                        data_type=weaviate.classes.config.DataType.TEXT,
+                        description="Chunk ID",
+                        skip_vectorization=True
+                    ),
+                    weaviate.classes.config.Property(
+                        name="originalIndex",
+                        data_type=weaviate.classes.config.DataType.INT,
+                        description="Original index of the chunk in the document",
+                        skip_vectorization=True
+                    ),
+                    weaviate.classes.config.Property(
+                        name="mediaReferences",
+                        data_type=weaviate.classes.config.DataType.TEXT_ARRAY,
+                        description="References to media items related to this content",
+                        skip_vectorization=True
+                    )
+                ]
+            )
+            print(f"Created Weaviate collection: {self.collection_name}")
         except Exception as e:
-            print(f"Error creating class: {e}")
+            print(f"Error creating collection: {e}")
+            raise
     
     def store_embeddings(self, texts, embeddings, metadata, batch_size=100):
         """
@@ -118,8 +171,9 @@ class WeaviateClient:
             metadata: List of metadata dictionaries
             batch_size: Size of batches for insertion
         """
-        # Create a batch process using v3 API
-        with self.client.batch as batch:
+        # Create batch for insertion
+        with self.client.batch.dynamic() as batch:
+            # Configure batch
             batch.batch_size = batch_size
             
             # Add each document with its embedding
@@ -143,16 +197,16 @@ class WeaviateClient:
                     media_refs_json = [json.dumps(ref) for ref in meta["media_references"]]
                     properties["mediaReferences"] = media_refs_json
                 
-                # Add object with vector using v3 API
-                batch.add_data_object(
-                    data_object=properties,
-                    class_name=self.class_name,
+                # Add object with vector
+                batch.add_object(
+                    collection=self.collection_name,
+                    properties=properties,
                     vector=embedding
                 )
     
-    def search(self, query_embedding, k=20):
+    def vector_search(self, query_embedding, k=20):
         """
-        Search for similar vectors in Weaviate.
+        Search for similar vectors in Weaviate using only vector similarity.
         
         Args:
             query_embedding: The vector to search with
@@ -162,65 +216,190 @@ class WeaviateClient:
             List of document dictionaries with metadata and similarity scores
         """
         try:
-            # Perform vector search using v3 API
-            result = (
-                self.client.query
-                .get(self.class_name, ["content", "contextualContent", "title", "url", "docId", "chunkId", "originalIndex", "mediaReferences"])
-                .with_near_vector({"vector": query_embedding})
-                .with_limit(k)
+            # Get collection if not already set
+            if not hasattr(self, 'collection'):
+                self.collection = self.client.collections.get(self.collection_name)
+                
+            # Perform vector search
+            response = (
+                self.collection.query
+                .near_vector(
+                    vector=query_embedding,
+                    limit=k
+                )
+                .with_additional(["distance"])
+                .with_fields("content contextualContent title url docId chunkId originalIndex mediaReferences")
                 .do()
             )
             
-            # Process results
-            if result and "data" in result and "Get" in result["data"]:
-                items = result["data"]["Get"][self.class_name]
+            # Format results
+            formatted_results = []
+            for item in response.objects:
+                # Convert to properties dictionary
+                props = item.properties
                 
-                # Format the results
-                formatted_results = []
-                for item in items:
-                    # Prepare metadata
-                    metadata = {
-                        "original_content": item["content"],
-                        "contextualized_content": item["contextualContent"],
-                        "title": item["title"],
-                        "url": item["url"],
-                        "doc_id": item["docId"],
-                        "chunk_id": item["chunkId"],
-                        "original_index": item["originalIndex"]
-                    }
-                    
-                    # Convert media references back from JSON strings
-                    if "mediaReferences" in item and item["mediaReferences"]:
-                        try:
-                            media_references = [json.loads(ref) for ref in item["mediaReferences"]]
-                            metadata["media_references"] = media_references
-                        except json.JSONDecodeError as e:
-                            print(f"Error decoding media references: {e}")
-                    
-                    formatted_results.append({
-                        "metadata": metadata,
-                        "similarity": item.get("_additional", {}).get("certainty", 0)
-                    })
-                return formatted_results
+                # Prepare metadata
+                metadata = {
+                    "original_content": props.get("content", ""),
+                    "contextualized_content": props.get("contextualContent", ""),
+                    "title": props.get("title", ""),
+                    "url": props.get("url", ""),
+                    "doc_id": props.get("docId", ""),
+                    "chunk_id": props.get("chunkId", ""),
+                    "original_index": props.get("originalIndex", 0)
+                }
+                
+                # Convert media references back from JSON strings
+                if "mediaReferences" in props and props["mediaReferences"]:
+                    try:
+                        media_references = [json.loads(ref) for ref in props["mediaReferences"]]
+                        metadata["media_references"] = media_references
+                    except json.JSONDecodeError as e:
+                        print(f"Error decoding media references: {e}")
+                
+                # Calculate similarity score (1 - distance)
+                distance = item.metadata.distance
+                similarity = 1.0 - distance if distance is not None else 0.0
+                
+                formatted_results.append({
+                    "metadata": metadata,
+                    "similarity": similarity
+                })
             
-            return []
+            return formatted_results
         except Exception as e:
             print(f"Error searching Weaviate: {e}")
+            return []
+    
+    def hybrid_search(self, query_text, query_embedding=None, k=20, alpha=0.5):
+        """
+        Performs hybrid search using both vector similarity and BM25 text search.
+        
+        Args:
+            query_text: The text query for BM25 search
+            query_embedding: Optional embedding vector for vector search
+            k: Number of results to return
+            alpha: Weight of vector search vs BM25 (0.5 = equal weight)
+            
+        Returns:
+            List of document dictionaries with metadata and hybrid scores
+        """
+        try:
+            # Get collection if not already set
+            if not hasattr(self, 'collection'):
+                self.collection = self.client.collections.get(self.collection_name)
+            
+            # Create query builder
+            query_builder = self.collection.query
+            
+            # Configure hybrid search
+            if query_embedding is not None:
+                # Use both vector and keyword search with specified alpha
+                hybrid_query = query_builder.hybrid(
+                    query=query_text,
+                    vector=query_embedding,
+                    alpha=alpha,
+                    fusion_type=HybridFusion.RELATIVE_SCORE,
+                    properties=["content", "contextualContent", "title"]
+                )
+            else:
+                # Use keyword search only
+                hybrid_query = query_builder.bm25(
+                    query=query_text,
+                    properties=["content", "contextualContent", "title"]
+                )
+            
+            # Execute search
+            response = (
+                hybrid_query
+                .with_limit(k)
+                .with_additional(["score", "explainScore"])
+                .with_fields("content contextualContent title url docId chunkId originalIndex mediaReferences")
+                .do()
+            )
+            
+            # Format results
+            formatted_results = []
+            for item in response.objects:
+                # Convert to properties dictionary
+                props = item.properties
+                
+                # Prepare metadata
+                metadata = {
+                    "original_content": props.get("content", ""),
+                    "contextualized_content": props.get("contextualContent", ""),
+                    "title": props.get("title", ""),
+                    "url": props.get("url", ""),
+                    "doc_id": props.get("docId", ""),
+                    "chunk_id": props.get("chunkId", ""),
+                    "original_index": props.get("originalIndex", 0)
+                }
+                
+                # Convert media references back from JSON strings
+                if "mediaReferences" in props and props["mediaReferences"]:
+                    try:
+                        media_references = [json.loads(ref) for ref in props["mediaReferences"]]
+                        metadata["media_references"] = media_references
+                    except json.JSONDecodeError as e:
+                        print(f"Error decoding media references: {e}")
+                
+                # Get hybrid score
+                score = item.metadata.score if hasattr(item.metadata, 'score') else 0.0
+                
+                formatted_results.append({
+                    "metadata": metadata,
+                    "score": score,
+                    "explain": item.metadata.explain_score if hasattr(item.metadata, 'explain_score') else None
+                })
+            
+            return formatted_results
+        except Exception as e:
+            print(f"Error performing hybrid search: {e}")
+            return []
+    
+    def search(self, query=None, query_embedding=None, k=20, hybrid=True, alpha=0.5):
+        """
+        Unified search interface that supports vector, keyword, or hybrid search.
+        
+        Args:
+            query: Text query for keyword or hybrid search
+            query_embedding: Vector for vector or hybrid search
+            k: Number of results to return
+            hybrid: Whether to use hybrid search (requires both query and query_embedding)
+            alpha: Weight of vector search vs BM25 (0.5 = equal weight)
+            
+        Returns:
+            List of document dictionaries with metadata and scores
+        """
+        # Determine search type based on inputs
+        if hybrid and query and query_embedding is not None:
+            # Use hybrid search
+            return self.hybrid_search(query, query_embedding, k, alpha)
+        elif query_embedding is not None:
+            # Use vector search
+            return self.vector_search(query_embedding, k)
+        elif query:
+            # Use keyword search (hybrid search with alpha=0)
+            return self.hybrid_search(query, None, k)
+        else:
+            # No valid search parameters
+            print("Error: Either query or query_embedding must be provided")
             return []
     
     def count_objects(self):
         """Return the count of objects in the collection."""
         try:
-            result = self.client.query.aggregate(self.class_name).with_meta_count().do()
-            return result["data"]["Aggregate"][self.class_name][0]["meta"]["count"]
+            if not hasattr(self, 'collection'):
+                self.collection = self.client.collections.get(self.collection_name)
+            return self.collection.aggregate.over_all().total_count()
         except Exception as e:
             print(f"Error counting objects: {e}")
             return 0
     
-    def delete_class(self):
+    def delete_collection(self):
         """Delete the collection from Weaviate."""
         try:
-            self.client.schema.delete_class(self.class_name)
-            print(f"Deleted class {self.class_name}")
+            self.client.collections.delete(self.collection_name)
+            print(f"Deleted collection {self.collection_name}")
         except Exception as e:
-            print(f"Error deleting class: {e}")
+            print(f"Error deleting collection: {e}")
